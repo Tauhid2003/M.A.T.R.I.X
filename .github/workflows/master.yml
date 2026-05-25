@@ -1,0 +1,53 @@
+name: Master Orchestrator Agent
+on:
+  workflow_dispatch:  # run manually from Actions tab
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Step 1 — Print Objective and Planning
+        run: |
+          echo "🧠 MASTER ORCHESTRATOR AGENT"
+          echo "Objective: Build a modular offline operating system (M.A.T.R.I.X) using agents."
+          echo ""
+          echo "Actions:"
+          echo "- Break high-level goals into small modules"
+          echo "- Assign first task (system architecture) to System Architect Agent"
+          echo ""
+          echo "Starting orchestration..."
+
+      - name: Step 2 — Create Architect Task File
+        run: |
+          mkdir -p tasks
+          cat <<EOT > tasks/architect_task.md
+          # SYSTEM ARCHITECT AGENT TASK
+
+          ## Goal
+          Design the full architecture of the OS (M.A.T.R.I.X).
+          - Define modules and responsibilities
+          - Propose folder structure
+          - Define APIs and data flow
+
+          ## Constraints
+          - Must run offline and be modular
+          - Should support AI agent integration
+          - Lightweight
+
+          ## Output format
+          1. System Overview
+          2. Module List
+          3. Folder Structure
+          4. Data Flow Between Modules
+          5. API Definitions
+
+          Please respond by updating design/architecture.md.
+          EOT
+
+      - name: Commit Architect Task and Push (if changes)
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add tasks/architect_task.md
+          git commit -m "Master Agent: Create architect task for System Architect Agent" || echo "No changes to commit"
+          git push || echo "Nothing to push"
