@@ -1,0 +1,59 @@
+name: Core OS Developer Agent
+on:
+  push:
+    paths:
+      - "design/architecture.md"   # Trigger when the architecture design is created or updated
+jobs:
+  develop_core:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Core OS Developer Agent Prompt
+        run: |
+          echo "💻 CORE OS DEVELOPER AGENT"
+          echo "Reading design/architecture.md for system modules to implement."
+          echo "Implement main system-level modules following architecture."
+      - name: Generate Example Core Modules (placeholder)
+        run: |
+          mkdir -p src/core
+          cat <<EOT > src/core/file_system.py
+          # File System Module
+          # Purpose: Manage files and directories in M.A.T.R.I.X OS
+          # Implementation Placeholder
+
+          class FileSystem:
+              def __init__(self):
+                  pass
+              def create_file(self, filename):
+                  pass
+              def read_file(self, filename):
+                  pass
+              def write_file(self, filename, data):
+                  pass
+
+          # How to run: Import FileSystem in main module and use its methods.
+          # Dependencies: None
+          EOT
+
+          cat <<EOT > src/core/process_manager.py
+          # Process Manager Module
+          # Purpose: Manage processes/tasks in the OS
+          # Implementation Placeholder
+
+          class ProcessManager:
+              def __init__(self):
+                  pass
+              def start_process(self, name):
+                  pass
+              def stop_process(self, pid):
+                  pass
+
+          # How to run: Import ProcessManager in main module and use its methods.
+          # Dependencies: None
+          EOT
+      - name: Commit & Push Core Modules
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add src/core/file_system.py src/core/process_manager.py
+          git commit -m "Core OS Developer Agent: Add file system and process manager modules" || echo "No changes to commit"
+          git push || echo "Nothing to push"
