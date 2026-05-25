@@ -1,0 +1,41 @@
+# M.A.T.R.I.X. Project Root Gitignore
+
+# Database & Logs
+*.db
+*.log
+scheduler.db
+scheduler.log
+
+# Temporary Word Lock Files & Locked original file
+~$*.docx
+/M.A.T.R.I.X .docx
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+
+# Node UI Dependencies & Build artifacts
+node_modules/
+dist/
+dist-ssr/
+src/ui/node_modules/
+src/ui/dist/
+src/ui/dist-ssr/
+
+# Custom OS ISO build outputs
+iso_build/build/
+*.iso
+
+# OS & Editor configurations
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

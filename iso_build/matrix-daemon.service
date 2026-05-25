@@ -1,0 +1,31 @@
+[Unit]
+Description=M.A.T.R.I.X. AI-OS System Core Scheduler Daemon
+After=network.target local-fs.target
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/matrix_scheduler.py
+Restart=always
+RestartSec=5
+User=root
+Group=root
+
+# Logging configuration
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening constraints for Systemd
+ProtectSystem=strict
+ReadWritePaths=/var/lib/matrix /var/log/matrix_scheduler.log
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+CapabilityBoundingSet=
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+Alias=matrix-daemon.service
