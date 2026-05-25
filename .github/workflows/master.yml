@@ -1,3 +1,5 @@
+permissions:
+  contents: write
 name: Master Orchestrator Agent
 on:
   workflow_dispatch:  # run manually from Actions tab
