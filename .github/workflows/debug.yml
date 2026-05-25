@@ -1,0 +1,51 @@
+name: Debugger & Tester Agent
+on:
+  push:
+    paths:
+      - "src/core/**"
+      - "src/ui/**"
+jobs:
+  debug_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debugger & Tester Agent Prompt
+        run: |
+          echo "🐞 DEBUGGER & TESTER AGENT"
+          echo "Scanning code modules for issues and generating test report."
+      - name: Simulate basic testing and report (placeholder)
+        run: |
+          mkdir -p docs
+          cat <<EOT > docs/test_report.md
+          # M.A.T.R.I.X OS – Test Report
+
+          ## Module Tested
+          - src/core/file_system.py
+          - src/core/process_manager.py
+          - src/ui/index.html
+
+          ## Issues Found
+          - Placeholder: Method create_file not implemented.
+          - Placeholder: UI terminal div not interactive yet.
+
+          ## Root Cause
+          - Stubs used in FileSystem and ProcessManager; methods must be implemented.
+          - UI lacks JS logic for terminal functionality.
+
+          ## Fix Suggestions
+          - Implement create_file, read_file, write_file methods in FileSystem.
+          - Add logic to src/ui/script.js for interactive terminal.
+
+          ## Status
+          FAIL
+
+          ---
+          *This test is a placeholder. Please update as modules are completed and add real tests!*
+          EOT
+
+      - name: Commit & Push test report
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add docs/test_report.md
+          git commit -m "Debugger & Tester Agent: Add initial test report (placeholder)" || echo "No changes to commit"
+          git push || echo "Nothing to push"
