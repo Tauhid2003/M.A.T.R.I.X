@@ -1,0 +1,78 @@
+name: UI/UX Agent
+on:
+  push:
+    paths:
+      - "design/architecture.md"  # Trigger when the architecture is updated
+jobs:
+  design_ui:
+    runs-on: ubuntu-latest
+    steps:
+      - name: UI/UX Agent Prompt
+        run: |
+          echo "🎨 UI/UX AGENT"
+          echo "Reading design/architecture.md for UI requirements."
+          echo "Generating conceptual UI and placeholder code."
+      - name: Generate UI Concept and Components
+        run: |
+          mkdir -p docs
+          mkdir -p src/ui
+          cat <<EOT > docs/ui_design.md
+          # UI Concept for M.A.T.R.I.X OS
+
+          ## UI Concept
+          Desktop-style environment with window management, sidebar menu, and terminal access. Minimal, offline-first, agent-modular.
+
+          ## Components List
+          - Main Desktop Area
+          - Start/Menu Bar
+          - Window/Task Manager
+          - Terminal Interface
+          - System Dashboard
+
+          ## Integration Instructions
+          UI modules should communicate with backend core via provided APIs.
+
+          ---
+          EOT
+
+          cat <<EOT > src/ui/index.html
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <title>M.A.T.R.I.X OS UI</title>
+            <link rel="stylesheet" href="style.css">
+          </head>
+          <body>
+            <!-- Placeholder for Desktop, Menu, Terminal, etc. -->
+            <div id="desktop">
+              <h1>Welcome to M.A.T.R.I.X OS</h1>
+              <div id="menu-bar"></div>
+              <div id="terminal"></div>
+              <div id="dashboard"></div>
+            </div>
+            <script src="script.js"></script>
+          </body>
+          </html>
+          EOT
+
+          cat <<EOT > src/ui/style.css
+          /* Minimal placeholder styles for M.A.T.R.I.X UI */
+          body {
+            background: #181B1F; color: #fff; font-family: sans-serif;
+          }
+          #desktop { padding: 2rem; }
+          #menu-bar, #terminal, #dashboard { margin: 1rem 0; }
+          EOT
+
+          cat <<EOT > src/ui/script.js
+          // JS Placeholder for desktop UI logic
+          document.getElementById('terminal').innerText = "Terminal ready...";
+          EOT
+      - name: Commit & Push UI Files
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add docs/ui_design.md src/ui/index.html src/ui/style.css src/ui/script.js
+          git commit -m "UI/UX Agent: Initial conceptual UI and placeholder code" || echo "No changes to commit"
+          git push || echo "Nothing to push"
