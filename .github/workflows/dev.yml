@@ -1,3 +1,5 @@
+permissions:
+  contents: write
 name: Core OS Developer Agent
 on:
   push:
