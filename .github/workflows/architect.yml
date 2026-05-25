@@ -1,0 +1,59 @@
+name: System Architect Agent
+on:
+  push:
+    paths:
+      - "tasks/architect_task.md"   # Trigger when the task file is created/updated
+jobs:
+  design_architecture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: System Architect Agent Prompt
+        run: |
+          echo "🏗️ SYSTEM ARCHITECT AGENT"
+          echo "Reading architect_task.md for requirements from Master Orchestrator Agent."
+          echo "Design the system according to the task prompt."
+      - name: Generate Example Architecture (manual for now)
+        run: |
+          mkdir -p design
+          cat <<EOT > design/architecture.md
+          # M.A.T.R.I.X OS - System Architecture (Example)
+
+          ## System Overview
+          Modular offline OS; supports agent-driven modules; runs without internet.
+
+          ## Module List
+          - Kernel/Core
+          - File System
+          - Process Manager
+          - Package Manager
+          - UI/UX Module
+          - Debug/Tester Module
+          - Build/Export Module
+
+          ## Folder Structure
+          /src/core
+          /src/filesystem
+          /src/process_manager
+          /src/package_manager
+          /src/ui
+          /src/debug
+          /src/build
+
+          ## Data Flow
+          [UI] <-> [Core] <-> [File System] <-> [Process Manager] <-> [Packages] <-> [Debug/Test] <-> [Build/Export]
+
+          ## API Definitions
+          - Core ↔ UI: sendCommand(), getStatus()
+          - Core ↔ File System: readFile(), writeFile()
+          - Core ↔ Other: defined as needed
+
+          ---
+          *Replace this with a true architecture when agent is AI-powered or manual edit.*
+          EOT
+      - name: Commit & Push Architecture Output
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add design/architecture.md
+          git commit -m "Architect Agent: Initial architecture layout" || echo "No changes to commit"
+          git push || echo "Nothing to push"
