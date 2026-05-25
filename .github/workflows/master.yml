@@ -8,8 +8,9 @@ jobs:
   orchestrate:
     runs-on: ubuntu-latest
     steps:
-       - name: Checkout repo
-     uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
       - name: Step 1 — Print Objective and Planning
         run: |
           echo "🧠 MASTER ORCHESTRATOR AGENT"
