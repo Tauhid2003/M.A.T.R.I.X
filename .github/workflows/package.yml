@@ -1,0 +1,53 @@
+name: Package & Dependency Agent
+on:
+  push:
+    paths:
+      - "design/architecture.md"
+      - "src/core/**"
+      - "src/ui/**"
+jobs:
+  manage_dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Package & Dependency Agent Prompt
+        run: |
+          echo "🔧 PACKAGE & DEPENDENCY AGENT"
+          echo "Checking for required packages based on core modules and UI."
+
+      - name: Analyze and list dependencies (example, static for now)
+        run: |
+          mkdir -p docs
+          cat <<EOT > docs/dependencies.md
+          # M.A.T.R.I.X OS - Required Packages
+
+          ## Required Packages
+          - Python 3.x (for core modules)
+          - pip (Python package manager)
+          - (Optional) electron or a web browser for running the UI
+
+          ## Installation Steps
+          1. Ensure Python 3.x is installed (https://python.org)
+          2. Ensure pip is available (`python -m ensurepip --upgrade`)
+          3. (Optional) To run UI locally, install Electron: `npm install -g electron`
+
+          ## Offline Setup Method
+          - Download all needed packages (wheels) to a local folder.
+          - Use `pip install --no-index --find-links=local_folder package_name` to install offline.
+          - Electron installer can be brought from the official site and transferred via USB.
+
+          ## Troubleshooting Guide
+          - If a package fails to install, check your Python/pip/Electron versions.
+          - For missing dependencies, ensure network access during initial setup, then cache dependencies offline.
+          - If you encounter permission issues, try running commands with `sudo` (Linux/Mac) or as administrator (Windows).
+
+          ---
+          *This file is generated automatically and will be updated as the system evolves.*
+          EOT
+
+      - name: Commit & Push dependencies doc
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add docs/dependencies.md
+          git commit -m "Package & Dependency Agent: Document required packages and offline setup" || echo "No changes to commit"
+          git push || echo "Nothing to push"
