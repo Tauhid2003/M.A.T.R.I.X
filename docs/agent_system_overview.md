@@ -54,7 +54,7 @@ Manual Trigger
 **What it does:** Periodic health and freshness scan for generated modules and docs.
 
 - **Triggers**
-  - Scheduled run at `0 1 * * *` (daily 01:00 UTC)
+  - Scheduled run at `0 1 * * *` (daily 01:00 UTC; cron format is `minute hour day_of_month month day_of_week`)
   - Manual run from GitHub Actions (`workflow_dispatch`)
 - **Expected output**
   - `docs/updater_report.md` containing stale areas, improvement ideas, and suggested owner-agent follow-up.
@@ -77,7 +77,7 @@ Manual Trigger
   - `docs/learning_agent_report.md` with failed workflow metadata, recurring failure patterns, and prompt/process improvements.
 - **Especially useful when**
   1. The same build/test failures appear repeatedly across runs.
-  2. Prompt quality needs tightening (for example, missing implementation checks).
+  2. Prompt quality needs tightening (e.g., missing implementation checks).
   3. You want trend-based hardening of agent prompts and handoff criteria.
 - **Example scenario**
   - Build fails repeatedly after test report updates. Learning Agent identifies a recurring missing-function pattern and recommends stricter completion criteria in Core OS Developer Agent prompts.
