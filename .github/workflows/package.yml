@@ -1,3 +1,5 @@
+permissions:
+  contents: write
 name: Package & Dependency Agent
 on:
   push:
