@@ -1,23 +1,31 @@
-permissions:
-  contents: write
 name: Updater Agent
+
 on:
   schedule:
-    - cron: '0 1 * * *'  # Runs daily at 01:00 UTC
-  workflow_dispatch:      # Allows manual triggering
+    - cron: '0 1 * * *' # Runs daily at 01:00 UTC
+  workflow_dispatch:   # Allows manual triggering
+
 jobs:
   update_review:
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write  # Allows the runner to commit and push changes back to the repo
+
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       - name: Updater Agent Prompt
         run: |
-          echo "🔄 UPDATER AGENT"
+          echo "🤖 UPDATER AGENT"
           echo "Reviewing system for stale modules and recommending updates."
+
       - name: Generate Updater Report (placeholder)
         run: |
           mkdir -p docs
-          cat <<EOT > docs/updater_report.md
-          # M.A.T.R.I.X OS – Updater Agent Report
+          cat << 'EOF' > docs/updater_report.md
+          # M.A.T.R.I.X OS - Updater Agent Report
 
           ## Suggested Improvements
           - Core module: Consider code refactoring.
@@ -33,7 +41,8 @@ jobs:
 
           ---
           *This is a placeholder. Replace with real logic and recommendations as automation increases!*
-          EOT
+          EOF
+
       - name: Commit & Push Updater Report
         run: |
           git config user.name "GitHub Actions"
@@ -41,3 +50,4 @@ jobs:
           git add docs/updater_report.md
           git commit -m "Updater Agent: Daily improvement report and recommendations" || echo "No changes to commit"
           git push || echo "Nothing to push"
+          
