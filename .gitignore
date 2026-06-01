@@ -28,6 +28,8 @@ src/ui/dist-ssr/
 # Custom OS ISO build outputs
 iso_build/build/
 *.iso
+matrix_hardware_profile.json
+
 
 # OS & Editor configurations
 .DS_Store
