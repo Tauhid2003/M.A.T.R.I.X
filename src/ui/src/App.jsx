@@ -119,6 +119,27 @@ function App() {
   const [lockPassword, setLockPassword] = useState('');
   const [powerModal, setPowerModal] = useState(null);
   const [wallpaper, setWallpaper] = useState('dark');
+  const [isMaximized, setIsMaximized] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Handle HTML5 Browser Fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error entering full-screen mode: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   // Update top bar clock with real-time format
   useEffect(() => {
@@ -441,6 +462,13 @@ function App() {
                     title="Lock Screen"
                   >
                     🔒
+                  </button>
+                  <button 
+                    onClick={toggleFullscreen}
+                    style={{ background: isFullscreen ? 'rgba(0,255,255,0.15)' : 'rgba(255,255,255,0.06)', border: isFullscreen ? '1px solid var(--accent-cyan)' : '0', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isFullscreen ? 'var(--accent-cyan)' : '#FFF' }}
+                    title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                  >
+                    🖥️
                   </button>
                   <button 
                     onClick={() => {
@@ -835,7 +863,7 @@ function App() {
 
         {/* Floating Application Window */}
         {windowOpen && (
-          <div className="ubuntu-window">
+          <div className={`ubuntu-window ${isMaximized ? 'maximized' : ''}`}>
             {/* Window Titlebar Header */}
             <div className="ubuntu-window-header">
               <span className="ubuntu-window-title">{getAppTitle()}</span>
@@ -845,7 +873,7 @@ function App() {
                     <line x1="2.5" y1="6" x2="9.5" y2="6" />
                   </svg>
                 </button>
-                <button className="win-btn win-btn-max" onClick={() => setWindowOpen(true)} title="Maximize">
+                <button className="win-btn win-btn-max" onClick={() => setIsMaximized(!isMaximized)} title={isMaximized ? "Restore Down" : "Maximize"}>
                   <svg viewBox="0 0 12 12" width="8" height="8" style={{ display: 'block', stroke: 'currentColor', strokeWidth: '1.8px', strokeLinejoin: 'round', fill: 'none', width: '8px', height: '8px' }}>
                     <rect x="2.5" y="2.5" width="7" height="7" />
                   </svg>
