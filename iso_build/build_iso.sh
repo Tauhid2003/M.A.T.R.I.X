@@ -63,7 +63,14 @@ cp "${SCRIPT_DIR}/cx.preseed" "${IMAGE_DIR}/cx.preseed"
 cp "${SCRIPT_DIR}/chroot_setup.sh" "${CHROOT_DIR}/chroot_setup.sh"
 mkdir -p "${CHROOT_DIR}/etc/systemd/system"
 cp "${SCRIPT_DIR}/matrix-daemon.service" "${CHROOT_DIR}/etc/systemd/system/matrix-daemon.service"
+cp "${SCRIPT_DIR}/matrix-firstboot.service" "${CHROOT_DIR}/etc/systemd/system/matrix-firstboot.service"
+mkdir -p "${CHROOT_DIR}/usr/local/bin"
+cp "${SCRIPT_DIR}/../src/core/hardware_profiler.py" "${CHROOT_DIR}/usr/local/bin/hardware_profiler.py"
+cp "${SCRIPT_DIR}/../src/core/firstboot_setup.py" "${CHROOT_DIR}/usr/local/bin/firstboot_setup.py"
+chmod +x "${CHROOT_DIR}/usr/local/bin/hardware_profiler.py"
+chmod +x "${CHROOT_DIR}/usr/local/bin/firstboot_setup.py"
 chmod +x "${CHROOT_DIR}/chroot_setup.sh"
+
 
 # 5. Bind mount virtual filesystems
 echo "Mounting virtual system paths for chroot operation..."

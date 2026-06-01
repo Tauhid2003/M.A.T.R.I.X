@@ -1,0 +1,22 @@
+[Unit]
+Description=M.A.T.R.I.X. AI-OS First-Boot Auto-Tuning Service
+After=local-fs.target
+Before=matrix-daemon.service
+ConditionPathExists=!/var/lib/matrix/.firstboot_done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/bin/firstboot_setup.py
+RemainAfterExit=yes
+User=root
+Group=root
+
+# Security constraints for safety
+ProtectSystem=strict
+ReadWritePaths=/var/lib/matrix /var/log /etc /proc/sys/vm
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+
+[Install]
+WantedBy=multi-user.target

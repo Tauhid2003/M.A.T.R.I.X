@@ -413,6 +413,7 @@ chmod +x /usr/local/bin/matrix_scheduler.py
 
 # 7. Enable system services
 echo "Enabling systemd service profiles..."
+systemctl enable matrix-firstboot || true
 systemctl enable matrix-daemon || true
 
 # 8. Setting up Hostname
