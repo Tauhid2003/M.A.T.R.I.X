@@ -7,7 +7,7 @@ set -e
 
 # Configuration Directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORK_DIR="${SCRIPT_DIR}/build"
+WORK_DIR="/tmp/matrix_build"
 CHROOT_DIR="${WORK_DIR}/chroot"
 IMAGE_DIR="${WORK_DIR}/image"
 LIVE_DIR="${IMAGE_DIR}/live"
@@ -126,8 +126,13 @@ EOF
 echo "Packaging system folders into EFI/BIOS bootable ISO..."
 grub-mkrescue -o "${WORK_DIR}/matrix-os-alpha.iso" "${IMAGE_DIR}"
 
+# 13. Copy to host shared folder mount
+echo "Copying compiled ISO to host shared folder..."
+mkdir -p "${SCRIPT_DIR}/build"
+cp "${WORK_DIR}/matrix-os-alpha.iso" "${SCRIPT_DIR}/build/matrix-os-alpha.iso"
+
 echo "=========================================================="
 echo "BUILD COMPLETED SUCCESSFULLY!"
-echo "ISO location: ${WORK_DIR}/matrix-os-alpha.iso"
-echo "MD5 Checksum: $(md5sum ${WORK_DIR}/matrix-os-alpha.iso | awk '{print $1}')"
+echo "ISO location: ${SCRIPT_DIR}/build/matrix-os-alpha.iso"
+echo "MD5 Checksum: $(md5sum ${SCRIPT_DIR}/build/matrix-os-alpha.iso | awk '{print $1}')"
 echo "=========================================================="

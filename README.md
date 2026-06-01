@@ -84,3 +84,23 @@ Run the ISO build script with root privileges:
 ```bash
 sudo ./iso_build/build_iso.sh
 ```
+
+### 4. Compiling the Live ISO (Windows Host via VirtualBox VM)
+Because Windows cannot natively compile a Debian `chroot` filesystem, you can run a headless Debian Virtual Machine inside VirtualBox to serve as the compiler host:
+1. **Prerequisites**: Install [VirtualBox](https://www.virtualbox.org/) and [Vagrant](https://www.vagrantup.com/).
+2. **Setup Vagrant VM**: Initialize and download a minimal Debian 12 base box:
+   ```bash
+   vagrant box add generic/debian12
+   vagrant init generic/debian12
+   ```
+3. **Configure Shared Folder**: Add a VirtualBox shared folder mapping `d:\My Own OS` to `/media/sf_My_Own_OS` inside your Vagrant VM settings or `Vagrantfile`.
+4. **Compile the ISO**: Boot the VM and execute the build script inside `/tmp` (VirtualBox shared folders do not support device node creation):
+   ```bash
+   vagrant up
+   vagrant ssh -c "sudo bash -c 'cd /media/sf_My_Own_OS && bash iso_build/build_iso.sh'"
+   ```
+5. **Storage Cleanup (Important)**: Once the build completes and `matrix-os-alpha.iso` is copied back to your Windows workspace folder, you can run this command to free up **~5 GB** of virtual disk space:
+   ```bash
+   vagrant destroy -f
+   ```
+

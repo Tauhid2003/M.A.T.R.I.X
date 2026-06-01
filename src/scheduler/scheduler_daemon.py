@@ -10,6 +10,8 @@ import asyncio
 from datetime import datetime
 # collections.deque removed (unused)
 from typing import List, Dict, Optional
+import urllib.request
+import urllib.error
 
 # Reconfigure stdout/stderr to support Unicode/UTF-8 emojis
 if hasattr(sys.stdout, 'reconfigure'):
@@ -36,6 +38,124 @@ def log_message(msg: str):
             f.write(formatted + "\n")
     except Exception:
         pass
+
+# Global cache of agent prompts loaded from docs/agent_prompts.md
+agent_prompts_cache = {}
+active_ollama_model = None
+
+def load_agent_prompts() -> Dict[str, str]:
+    global agent_prompts_cache
+    if agent_prompts_cache:
+        return agent_prompts_cache
+    
+    prompts = {
+        "Security Auditor": "You are the Security Auditor Agent for M.A.T.R.I.X OS. Your job: Scan vulnerabilities.",
+        "Wine Translator": "You are the Wine Translator Agent for M.A.T.R.I.X OS. Your job: Translate win32 API calls.",
+        "Filesystem Stripper": "You are the Filesystem Stripper Agent for M.A.T.R.I.X OS. Your job: Clean temporary caches.",
+        "Network Guard": "You are the Network Guard Agent for M.A.T.R.I.X OS. Your job: Inspect traffic."
+    }
+    
+    # Try multiple paths for agent_prompts.md
+    search_paths = [
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "docs", "agent_prompts.md"),
+        os.path.join(os.getcwd(), "docs", "agent_prompts.md"),
+        "docs/agent_prompts.md",
+        "../docs/agent_prompts.md"
+    ]
+    
+    prompts_file = None
+    for p in search_paths:
+        if os.path.exists(p):
+            prompts_file = p
+            break
+            
+    if not prompts_file:
+        agent_prompts_cache = prompts
+        return prompts
+        
+    try:
+        with open(prompts_file, "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        sections = content.split("## ")
+        for sec in sections[1:]:
+            lines = sec.strip().split("\n")
+            if not lines:
+                continue
+            header = lines[0].strip()
+            # Clean header, e.g. "1. System Architect Agent" -> "System Architect Agent"
+            agent_name = header
+            if "." in agent_name:
+                agent_name = agent_name.split(".", 1)[1].strip()
+            
+            prompt_text = "\n".join(lines[1:]).strip()
+            prompts[agent_name] = prompt_text
+            
+            # Map without " Agent" suffix
+            short_name = agent_name.replace(" Agent", "").strip()
+            prompts[short_name] = prompt_text
+    except Exception as e:
+        log_message(f"⚠️ [Config] Error reading agent_prompts.md: {e}")
+        
+    agent_prompts_cache = prompts
+    return prompts
+
+def get_best_ollama_model() -> Optional[str]:
+    global active_ollama_model
+    if active_ollama_model is not None:
+        return active_ollama_model if active_ollama_model else None
+        
+    url = "http://localhost:11434/api/tags"
+    req = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=2) as response:
+            res_body = response.read().decode("utf-8")
+            res_json = json.loads(res_body)
+            models = res_json.get("models", [])
+            if models:
+                model_names = [m.get("name") for m in models if m.get("name")]
+                # Prioritize Qwen3 models
+                for m in ["qwen3:8b", "qwen3", "qwen3:latest"]:
+                    if m in model_names:
+                        active_ollama_model = m
+                        return m
+                active_ollama_model = model_names[0]
+                return active_ollama_model
+    except Exception:
+        pass
+    active_ollama_model = ""  # Mark as checked but offline
+    return None
+
+def query_ollama_sync(model: str, system_prompt: str, prompt: str) -> str:
+    url = "http://localhost:11434/api/generate"
+    data = {
+        "model": model,
+        "prompt": prompt,
+        "system": system_prompt,
+        "stream": False
+    }
+    req_body = json.dumps(data).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=req_body,
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8) as response:
+            res_body = response.read().decode("utf-8")
+            res_json = json.loads(res_body)
+            return res_json.get("response", "").strip()
+    except Exception as e:
+        return ""
+
+async def query_ollama(model: str, system_prompt: str, prompt: str) -> str:
+    try:
+        return await asyncio.to_thread(query_ollama_sync, model, system_prompt, prompt)
+    except AttributeError:
+        # Fallback for Python versions < 3.9 without asyncio.to_thread
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, query_ollama_sync, model, system_prompt, prompt)
 
 class LRUKCache:
     """
@@ -314,7 +434,25 @@ async def main():
             active_task.executed_time += step_time
             active_task.remaining_time = max(0.0, active_task.remaining_time - step_time)
             
-            action = f"{algo.upper()} step {step+1}/{steps} for {active_task.task_name}"
+            # Query Ollama for dynamic progress step
+            action = None
+            model = get_best_ollama_model()
+            if model:
+                prompts = load_agent_prompts()
+                system_prompt = prompts.get(active_task.agent_id, f"You are the {active_task.agent_id} Agent for M.A.T.R.I.X OS.")
+                user_prompt = (
+                    f"We are running a simulated task '{active_task.task_name}' for agent '{active_task.agent_id}' "
+                    f"under scheduling policy '{algo.upper()}'. This is step {step+1} out of {steps}. "
+                    f"Describe in exactly one short sentence (under 10 words) what action you are taking right now. "
+                    f"Start the sentence with a verb or status emoji."
+                )
+                action_text = await query_ollama(model, system_prompt, user_prompt)
+                if action_text:
+                    action = f"[{algo.upper()}] {action_text}"
+            
+            if not action:
+                action = f"{algo.upper()} step {step+1}/{steps} for {active_task.task_name}"
+                
             active_task.attention_history.append(action)
             log_message(f"   [Running] '{active_task.agent_id}': {action}")
 
@@ -328,7 +466,22 @@ async def main():
         # Update final task status
         if active_task.remaining_time <= 0.01:
             log_message(f"✅ Completed task '{active_task.task_name}' for agent '{active_task.agent_id}'")
-            active_task.attention_history.append(f"Completed '{active_task.task_name}'")
+            outcome = None
+            model = get_best_ollama_model()
+            if model:
+                prompts = load_agent_prompts()
+                system_prompt = prompts.get(active_task.agent_id, f"You are the {active_task.agent_id} Agent for M.A.T.R.I.X OS.")
+                user_prompt = (
+                    f"The task '{active_task.task_name}' has finished running. "
+                    f"Provide a single-sentence outcome report (under 15 words) starting with 'Outcome:'."
+                )
+                outcome_text = await query_ollama(model, system_prompt, user_prompt)
+                if outcome_text:
+                    outcome = outcome_text
+            if not outcome:
+                outcome = f"Completed '{active_task.task_name}'"
+                
+            active_task.attention_history.append(outcome)
             cursor.execute("UPDATE tasks SET status = 'completed', attention_history = ? WHERE id = ?",
                            (json.dumps(active_task.attention_history), active_task.db_id))
             active_task = None
