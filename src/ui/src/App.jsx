@@ -122,6 +122,77 @@ function App() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // First-boot wizard and permission states
+  const [setupCompleted, setSetupCompleted] = useState(true);
+  const [hardwareProfile, setHardwareProfile] = useState(null);
+  const [wizardName, setWizardName] = useState('Shaik Tauhidur Rahman');
+  const [wizardVoice, setWizardVoice] = useState('Piper Neural Voice (medium)');
+  const [wizardPrivacy, setWizardPrivacy] = useState('local-first');
+  const [apiOnline, setApiOnline] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
+
+  // Check setup status and api connectivity at boot
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/status');
+        if (res.ok) {
+          const data = await res.json();
+          setApiOnline(true);
+          if (data.firstboot_setup_completed === 'true') {
+            setSetupCompleted(true);
+          } else {
+            setSetupCompleted(false);
+          }
+        }
+      } catch (e) {
+        console.warn('MATRIX API Daemon is offline. Falling back to simulated mode.', e);
+        setApiOnline(false);
+        setSetupCompleted(true);
+      }
+    };
+    checkStatus();
+  }, []);
+
+  // Retrieve hardware profile if setup is not finished
+  useEffect(() => {
+    if (!setupCompleted && apiOnline) {
+      const getHardware = async () => {
+        try {
+          const res = await fetch('http://localhost:8000/api/hardware');
+          if (res.ok) {
+            const data = await res.json();
+            setHardwareProfile(data);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+      getHardware();
+    }
+  }, [setupCompleted, apiOnline]);
+
+  // Poll for commands awaiting operator permission (CORE-004 Permission System)
+  useEffect(() => {
+    if (!setupCompleted || !apiOnline) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/pending');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.length > 0) {
+            setPendingAction(data[0]); // Render first alert in queue
+          } else {
+            setPendingAction(null);
+          }
+        }
+      } catch (e) {
+        // Ignore daemon server disconnects during reboots
+      }
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [setupCompleted, apiOnline]);
+
   // Handle HTML5 Browser Fullscreen changes
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -338,6 +409,143 @@ function App() {
         return 'M.A.T.R.I.X. Console';
     }
   };
+
+  if (!setupCompleted) {
+    return (
+      <div 
+        className="ubuntu-desktop-wrapper"
+        style={{
+          backgroundImage: `url(${matrixOceanBlueWallpaper})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          color: '#FFF'
+        }}
+      >
+        <div style={{
+          background: 'rgba(15, 10, 20, 0.85)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(0, 255, 255, 0.25)',
+          borderRadius: '16px',
+          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)',
+          width: '580px',
+          padding: '30px',
+          boxSizing: 'border-box',
+          fontFamily: 'var(--font-sans)'
+        }}>
+          <h2 style={{ color: 'var(--ubuntu-orange)', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px', marginTop: 0 }}>
+            ⚡ M.A.T.R.I.X. AI-OS Setup Wizard
+          </h2>
+          <p style={{ fontSize: '0.85rem', color: '#CCC', lineHeight: '1.4' }}>
+            Welcome to the Metaverse Artificial Technological Regenerating Intelligence Experiment OS. The system has automatically scanned your computer configurations to prepare local AI seeding.
+          </p>
+
+          <div style={{ margin: '20px 0', background: 'rgba(255,255,255,0.04)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <h3 style={{ fontSize: '0.9rem', color: 'var(--accent-cyan)', marginTop: 0, marginBottom: '10px' }}>🖥️ Auto-Detected Hardware Profile</h3>
+            {hardwareProfile ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: '0.8rem', fontFamily: 'var(--font-mono)' }}>
+                <div>System Platform: <span style={{ color: '#FFF' }}>{hardwareProfile.hardware.platform}</span></div>
+                <div>CPU Cores: <span style={{ color: '#FFF' }}>{hardwareProfile.hardware.cpu_cores} cores</span></div>
+                <div>Total RAM: <span style={{ color: '#FFF' }}>{hardwareProfile.hardware.system_ram_gb} GB</span></div>
+                <div>VRAM Memory: <span style={{ color: '#FFF' }}>{hardwareProfile.hardware.gpu_vram_gb} GB</span></div>
+                <div style={{ gridColumn: 'span 2', marginTop: '6px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '6px' }}>
+                  🏆 Classified Tier: <span style={{ color: 'var(--ubuntu-orange)', fontWeight: 'bold' }}>{hardwareProfile.classification.tier.toUpperCase()}</span>
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  📦 Recommended Local LLM: <span style={{ color: 'var(--accent-green)' }}>{hardwareProfile.seeder.recommended_llm}</span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.8rem', color: '#888' }}>Auditing hardware interfaces...</div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: '20px 0' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '0.78rem', color: '#AAA', fontWeight: 'bold' }}>Operator Profile Name</label>
+              <input 
+                type="text" 
+                value={wizardName} 
+                onChange={(e) => setWizardName(e.target.value)}
+                style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', padding: '8px', color: '#FFF', fontSize: '0.85rem' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '0.78rem', color: '#AAA', fontWeight: 'bold' }}>Local TTS Voice Profile</label>
+              <select 
+                value={wizardVoice} 
+                onChange={(e) => setWizardVoice(e.target.value)}
+                style={{ background: '#1c1b22', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', padding: '8px', color: '#FFF', fontSize: '0.85rem' }}
+              >
+                <option value="Piper Neural Voice (medium)">Piper Voice (en_US-lessac-medium) - Fast CPU</option>
+                <option value="Kokoro TTS (high)">Kokoro Neural Voice (en_US) - High Quality</option>
+                <option value="eSpeak Legacy">eSpeak Synthesizer (Robotic System Voice)</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '0.78rem', color: '#AAA', fontWeight: 'bold' }}>Privacy & Telemetry Mode</label>
+              <div style={{ display: 'flex', gap: '16px', marginTop: '4px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                  <input 
+                    type="radio" 
+                    name="privacy" 
+                    value="local-first"
+                    checked={wizardPrivacy === 'local-first'}
+                    onChange={() => setWizardPrivacy('local-first')}
+                    style={{ accentColor: 'var(--ubuntu-orange)' }}
+                  />
+                  🔒 Local-First (Strict Privacy, No Telemetry)
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                  <input 
+                    type="radio" 
+                    name="privacy" 
+                    value="anonymous"
+                    checked={wizardPrivacy === 'anonymous'}
+                    onChange={() => setWizardPrivacy('anonymous')}
+                    style={{ accentColor: 'var(--ubuntu-orange)' }}
+                  />
+                  📈 Anonymous Performance Analytics
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <button 
+            onClick={async () => {
+              try {
+                await fetch('http://localhost:8000/api/config', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    firstboot_setup_completed: 'true',
+                    user_name: wizardName,
+                    user_voice: wizardVoice,
+                    privacy_mode: wizardPrivacy,
+                    default_model: hardwareProfile ? hardwareProfile.seeder.recommended_llm : 'qwen2.5:3b-instruct',
+                    ollama_threads: hardwareProfile ? hardwareProfile.seeder.ollama_threads : '4',
+                    system_tier: hardwareProfile ? hardwareProfile.classification.tier : 'Mid-Range'
+                  })
+                });
+                setSetupCompleted(true);
+              } catch (e) {
+                console.error(e);
+                setSetupCompleted(true);
+              }
+            }}
+            className="btn-cyan"
+            style={{ width: '100%', padding: '10px', fontSize: '0.85rem', fontWeight: 'bold', borderRadius: '6px', marginTop: '10px' }}
+          >
+            🚀 Finalize Configuration & Initialize AI-OS
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -1117,6 +1325,110 @@ function App() {
               <div style={{ color: 'var(--accent-cyan)' }}>[  OK  ] Restarting Matrix orchestrator daemon services...</div>
               <div style={{ color: 'var(--accent-cyan)' }}>[  OK  ] Re-initializing React Virtual DOM components...</div>
               <div style={{ color: 'var(--accent-green)', fontWeight: 'bold', marginTop: '10px', animation: 'blink 1.2s infinite' }}>[ REBOOT ] Resetting VM system buffers... reloading page now, sir.</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Permission Confirmation Overlay Modal (CORE-004 Permission System) */}
+      {pendingAction && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 999999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: 'var(--font-sans)',
+          color: '#FFF',
+          padding: '24px'
+        }}>
+          <div style={{ 
+            width: '100%', 
+            maxWidth: '520px', 
+            background: 'rgba(20, 15, 25, 0.95)', 
+            border: pendingAction.level === 'admin' ? '2px solid var(--accent-rose)' : '2px solid var(--ubuntu-orange)', 
+            borderRadius: '12px', 
+            padding: '24px', 
+            boxShadow: '0 10px 30px rgba(0,0,0,0.8)' 
+          }}>
+            <div style={{ 
+              color: pendingAction.level === 'admin' ? 'var(--accent-rose)' : 'var(--ubuntu-orange)', 
+              fontWeight: 'bold', 
+              fontSize: '1rem', 
+              borderBottom: '1px solid rgba(255,255,255,0.1)', 
+              paddingBottom: '12px', 
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span>🛡️ M.A.T.R.I.X Security Access Decision Gate</span>
+            </div>
+            
+            <div style={{ fontSize: '0.85rem', color: '#DDD', lineHeight: '1.5', marginBottom: '20px' }}>
+              <p>The AI Agent is requesting permission to execute an action classified as <strong style={{ color: pendingAction.level === 'admin' ? 'var(--accent-rose)' : 'var(--ubuntu-orange)', textTransform: 'uppercase' }}>{pendingAction.level}</strong>:</p>
+              <pre style={{ 
+                background: '#0c0810', 
+                padding: '12px', 
+                borderRadius: '6px', 
+                fontFamily: 'var(--font-mono)', 
+                fontSize: '0.75rem', 
+                color: '#abb2bf',
+                overflowX: 'auto',
+                border: '1px solid rgba(255,255,255,0.05)',
+                margin: '10px 0'
+              }}>
+                {pendingAction.command}
+              </pre>
+              <p style={{ fontSize: '0.75rem', color: '#888' }}>
+                {pendingAction.level === 'admin' 
+                  ? 'Warning: This command requires administrator level access. It could modify system services or critical components.'
+                  : 'This command will modify local files, settings, or project variables.'}
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button 
+                onClick={async () => {
+                  try {
+                    await fetch('http://localhost:8000/api/pending/resolve', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action_id: pendingAction.action_id, decision: 'reject' })
+                    });
+                    setPendingAction(null);
+                  } catch (e) {
+                    console.error(e);
+                    setPendingAction(null);
+                  }
+                }}
+                className="btn-reset"
+                style={{ fontSize: '0.8rem', padding: '8px 16px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', color: '#FFF' }}
+              >
+                🔴 Deny Action
+              </button>
+              <button 
+                onClick={async () => {
+                  try {
+                    await fetch('http://localhost:8000/api/pending/resolve', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action_id: pendingAction.action_id, decision: 'approve' })
+                    });
+                    setPendingAction(null);
+                  } catch (e) {
+                    console.error(e);
+                    setPendingAction(null);
+                  }
+                }}
+                className="btn-cyan"
+                style={{ fontSize: '0.8rem', padding: '8px 16px', borderRadius: '4px', border: 0, fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                🟢 Approve & Execute
+              </button>
             </div>
           </div>
         </div>

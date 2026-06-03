@@ -42,7 +42,17 @@ export default function TerminalTab({ initialCommand, onClearInitialCommand }) {
     window.speechSynthesis.speak(utterance);
   };
 
-  const runCommandSim = (commandText) => {
+  const pollIntervalRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const runCommandSim = async (commandText) => {
     if (!commandText.trim() || isExecuting) return;
     
     setIsExecuting(true);
@@ -50,6 +60,84 @@ export default function TerminalTab({ initialCommand, onClearInitialCommand }) {
     
     // Add command to terminal history
     setHistory(prev => [...prev, { type: 'user', text: `$ ${commandText}` }]);
+    
+    try {
+      const res = await fetch('http://localhost:8000/api/terminal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: commandText })
+      });
+      
+      if (!res.ok) {
+        throw new Error('API server returned error');
+      }
+      
+      const data = await res.json();
+      
+      if (data.status === 'completed') {
+        setHistory(prev => [
+          ...prev,
+          ...(data.stdout ? [{ type: 'output', text: data.stdout }] : []),
+          ...(data.stderr ? [{ type: 'output', text: data.stderr }] : [])
+        ]);
+        setIsExecuting(false);
+        speakVocalFeedback("Command executed.");
+      } else if (data.status === 'pending_approval') {
+        setHistory(prev => [
+          ...prev,
+          { type: 'info', text: `[SandboxGate] Command requires Operator approval (Action ID: ${data.action_id})` },
+          { type: 'info', text: `[SandboxGate] Awaiting decision gate...` }
+        ]);
+        
+        const interval = setInterval(async () => {
+          try {
+            const statusRes = await fetch(`http://localhost:8000/api/pending/status?action_id=${data.action_id}`);
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              if (statusData.status === 'completed') {
+                clearInterval(interval);
+                setHistory(prev => [
+                  ...prev,
+                  { type: 'info', text: `[SandboxGate] Security access GRANTED.` },
+                  ...(statusData.stdout ? [{ type: 'output', text: statusData.stdout }] : []),
+                  ...(statusData.stderr ? [{ type: 'output', text: statusData.stderr }] : [])
+                ]);
+                setIsExecuting(false);
+                speakVocalFeedback("Command approved and executed.");
+              } else if (statusData.status === 'rejected') {
+                clearInterval(interval);
+                setHistory(prev => [
+                  ...prev,
+                  { type: 'info', text: `[SandboxGate] Security access DENIED.` },
+                  { type: 'output', text: `Error: ${statusData.error}` }
+                ]);
+                setIsExecuting(false);
+                speakVocalFeedback("Command denied.");
+              }
+            }
+          } catch (e) {
+            clearInterval(interval);
+            setIsExecuting(false);
+            setHistory(prev => [...prev, { type: 'info', text: '[System] Error polling decision gate status.' }]);
+          }
+        }, 1000);
+        
+        pollIntervalRef.current = interval;
+      }
+    } catch (e) {
+      console.warn("MATRIX API Daemon is offline. Falling back to simulated mode.", e);
+      runCommandSimulation(commandText, true);
+    }
+  };
+
+  const runCommandSimulation = (commandText, skipUserHistory = false) => {
+    if (!commandText.trim()) return;
+    if (!skipUserHistory) {
+      if (isExecuting) return;
+      setIsExecuting(true);
+      setInputVal('');
+      setHistory(prev => [...prev, { type: 'user', text: `$ ${commandText}` }]);
+    }
     
     const cmdLower = commandText.trim().toLowerCase();
     const cmdArgs = cmdLower.split(' ');

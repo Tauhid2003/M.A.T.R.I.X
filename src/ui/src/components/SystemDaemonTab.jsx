@@ -18,17 +18,74 @@ export default function SystemDaemonTab() {
   const [gpuDriverName, setGpuDriverName] = useState('nvidia-550.120 (proprietary)');
   const [audioDriverName, setAudioDriverName] = useState('PipeWire Audio Server');
 
+  // Hardcoded max/limit parameters for visualization
+  const [ramLimit, setRamLimit] = useState(16.0);
+  const [vramLimit, setVramLimit] = useState(8.0);
+  const [cpuCores, setCpuCores] = useState(8);
+  const [cpuThreads, setCpuThreads] = useState(16);
+  const [isApiMode, setIsApiMode] = useState(false);
+
+  // Fetch real hardware profile and daemon status if API is online
+  useEffect(() => {
+    const fetchSystemTelemetry = async () => {
+      try {
+        const hwRes = await fetch('http://localhost:8000/api/hardware');
+        const statusRes = await fetch('http://localhost:8000/api/status');
+        
+        if (hwRes.ok) {
+          const hw = await hwRes.json();
+          setIsApiMode(true);
+          
+          if (hw.hardware) {
+            setGpuModel(hw.hardware.gpu_detected || 'Integrated / CPU-Only');
+            setRamLimit(hw.hardware.system_ram_gb || 16.0);
+            setVramLimit(hw.hardware.gpu_vram_gb || 8.0);
+            setCpuCores(hw.hardware.cpu_cores || 8);
+            setCpuThreads((hw.hardware.cpu_cores || 8) * 2);
+            
+            // Re-seed starting memory usages based on host config
+            setRamUsage((hw.hardware.system_ram_gb || 16.0) * 0.42);
+            setVramUsage((hw.hardware.gpu_vram_gb || 8.0) * 0.25);
+          }
+        }
+        
+        if (statusRes.ok) {
+          const status = await statusRes.json();
+          if (status.default_model) {
+            // Map default model to dropdown value
+            if (status.default_model.includes('14b')) {
+              setSelectedModel('qwen-14b');
+            } else if (status.default_model.includes('phi')) {
+              setSelectedModel('phi-3');
+            } else {
+              setSelectedModel('qwen-3b');
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('System Monitor daemon is offline. Using simulated system diagnostics.');
+        setIsApiMode(false);
+      }
+    };
+    
+    fetchSystemTelemetry();
+  }, []);
+
   useEffect(() => {
     const loadDriverStates = () => {
       const gpuChoice = localStorage.getItem('ubuntu_driver_gpu') || 'nvidia';
       const audioChoice = localStorage.getItem('ubuntu_driver_audio') || 'pipewire';
       
-      if (gpuChoice === 'nouveau') {
-        setGpuModel('Mesa LLVMpipe (CPU Rasterizer / Nouveau)');
-        setGpuDriverName('nouveau (open-source)');
+      if (!isApiMode) {
+        if (gpuChoice === 'nouveau') {
+          setGpuModel('Mesa LLVMpipe (CPU Rasterizer / Nouveau)');
+          setGpuDriverName('nouveau (open-source)');
+        } else {
+          setGpuModel('NVIDIA Corporation AD102 [GeForce RTX 4090]');
+          setGpuDriverName('nvidia-550.120 (proprietary)');
+        }
       } else {
-        setGpuModel('NVIDIA Corporation AD102 [GeForce RTX 4090]');
-        setGpuDriverName('nvidia-550.120 (proprietary)');
+        setGpuDriverName(gpuChoice === 'nouveau' ? 'nouveau (open-source)' : 'nvidia-550.120 (proprietary)');
       }
       
       setAudioDriverName(audioChoice === 'alsa' ? 'ALSA legacy kernel' : 'PipeWire Audio Server');
@@ -37,7 +94,7 @@ export default function SystemDaemonTab() {
     loadDriverStates();
     window.addEventListener('ubuntu-drivers-updated', loadDriverStates);
     return () => window.removeEventListener('ubuntu-drivers-updated', loadDriverStates);
-  }, []);
+  }, [isApiMode]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -50,12 +107,12 @@ export default function SystemDaemonTab() {
         return Math.max(10, Math.min(95, prev + delta));
       });
       setVramUsage(prev => {
-        const delta = parseFloat((Math.random() * 0.2 - 0.1).toFixed(2));
-        return Math.max(2.0, Math.min(7.5, parseFloat((prev + delta).toFixed(2))));
+        const delta = parseFloat((Math.random() * 0.15 - 0.07).toFixed(2));
+        return Math.max(vramLimit * 0.1, Math.min(vramLimit * 0.9, parseFloat((prev + delta).toFixed(2))));
       });
       setRamUsage(prev => {
         const delta = parseFloat((Math.random() * 0.1 - 0.05).toFixed(2));
-        return Math.max(8.0, Math.min(14.8, parseFloat((prev + delta).toFixed(2))));
+        return Math.max(ramLimit * 0.2, Math.min(ramLimit * 0.85, parseFloat((prev + delta).toFixed(2))));
       });
       setNtsyncCalls(prev => {
         const delta = Math.floor(Math.random() * 200) - 100;
@@ -68,7 +125,7 @@ export default function SystemDaemonTab() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [ramLimit, vramLimit]);
 
   const clearModelContext = () => {
     setTokensInUse(0);
@@ -254,7 +311,9 @@ export default function SystemDaemonTab() {
             <div className="meter-track">
               <div className="meter-fill meter-fill-cyan" style={{ width: `${cpuLoad}%` }}></div>
             </div>
-            <span style={{ fontSize: '0.65rem', color: 'var(--color-text-dark)', fontFamily: 'var(--font-mono)', display: 'block', marginTop: '4px' }}>4 Cores / 8 Threads active</span>
+            <span style={{ fontSize: '0.65rem', color: 'var(--color-text-dark)', fontFamily: 'var(--font-mono)', display: 'block', marginTop: '4px' }}>
+              {cpuCores} Cores / {cpuThreads} Threads active
+            </span>
           </div>
 
           <div>
@@ -274,20 +333,20 @@ export default function SystemDaemonTab() {
           <div>
             <div className="meter-header">
               <span className="meter-label" style={{ color: 'var(--accent-violet)' }}>VRAM Pool Allocation</span>
-              <span className="meter-val">{vramUsage.toFixed(1)}G / 8.0G</span>
+              <span className="meter-val">{vramUsage.toFixed(1)}G / {vramLimit.toFixed(1)}G</span>
             </div>
             <div className="meter-track">
-              <div className="meter-fill meter-fill-violet" style={{ width: `${(vramUsage / 8.0) * 100}%` }}></div>
+              <div className="meter-fill meter-fill-violet" style={{ width: `${vramLimit > 0 ? (vramUsage / vramLimit) * 100 : 0}%` }}></div>
             </div>
           </div>
 
           <div>
             <div className="meter-header">
               <span className="meter-label" style={{ color: 'var(--accent-green)' }}>Host System RAM</span>
-              <span className="meter-val">{ramUsage.toFixed(1)}G / 16.0G</span>
+              <span className="meter-val">{ramUsage.toFixed(1)}G / {ramLimit.toFixed(1)}G</span>
             </div>
             <div className="meter-track">
-              <div className="meter-fill meter-fill-green" style={{ width: `${(ramUsage / 16.0) * 100}%` }}></div>
+              <div className="meter-fill meter-fill-green" style={{ width: `${ramLimit > 0 ? (ramUsage / ramLimit) * 100 : 0}%` }}></div>
             </div>
           </div>
 
