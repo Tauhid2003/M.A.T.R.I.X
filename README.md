@@ -29,6 +29,10 @@ M.A.T.R.I.X/
 │   ├── matrix-daemon.service  # Systemd service daemon config
 │   └── sys_spec.json          # System specification configuration matrix
 ├── src/                       # OS logic and UI application components
+│   ├── core/                  # Core OS features and daemon APIs
+│   │   ├── api_daemon.py          # Unified Python API Daemon (REST backend)
+│   │   ├── firstboot_setup.py     # Hardware auto-tuning & OS configuration
+│   │   └── hardware_profiler.py   # System hardware dynamic profiler
 │   ├── scheduler/             # Agent task scheduler services
 │   │   ├── scheduler_daemon.py    # Cross-platform active scheduler daemon
 │   │   └── scheduler_prototype.py # Simulation suite for scheduler algorithms
@@ -73,7 +77,13 @@ npm install
 npm run dev
 ```
 
-### 2. Simulating the Task Scheduler
+### 2. Running the Unified API Daemon Backend
+Start the backend REST service (running on port 8000 by default):
+```bash
+python src/core/api_daemon.py
+```
+
+### 3. Simulating the Task Scheduler
 Run the scheduler simulation suite locally using Python:
 ```bash
 python src/scheduler/scheduler_prototype.py
