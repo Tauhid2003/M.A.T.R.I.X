@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function BrowserTab({ isOnline = true }) {
   const [reloadKey, setReloadKey] = useState(0);
@@ -21,7 +21,7 @@ export default function BrowserTab({ isOnline = true }) {
       } else {
         setLaunchStatus('Failed to launch. Verify local daemon configs.');
       }
-    } catch (e) {
+    } catch {
       setLaunchStatus('Connection error. Server script execution is offline.');
       setTimeout(() => setLaunchStatus(''), 4000);
     }
@@ -42,7 +42,7 @@ export default function BrowserTab({ isOnline = true }) {
       } else {
         cleanUrl = cleanUrl.toLowerCase();
       }
-    } catch (e) {
+    } catch {
       cleanUrl = cleanUrl.toLowerCase();
     }
     
@@ -209,7 +209,7 @@ export default function BrowserTab({ isOnline = true }) {
       if (searchSubmitted) {
         // Search Results
         const q = searchQuery.toLowerCase();
-        let results = [];
+        let results;
         if (q.includes('os') || q.includes('matrix') || q.includes('system')) {
           results = [
             { title: 'MATRIX OS Architecture Blueprint - documentation', snippet: 'Learn how the Minimal Debian debootstrap live ISO builder environment, AppArmor cgroups, and Wine sandboxes are structured.', link: 'matrix.wiki' },

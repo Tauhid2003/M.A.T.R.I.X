@@ -115,7 +115,7 @@ export default function TerminalTab({ initialCommand, onClearInitialCommand }) {
                 speakVocalFeedback("Command denied.");
               }
             }
-          } catch (e) {
+          } catch {
             clearInterval(interval);
             setIsExecuting(false);
             setHistory(prev => [...prev, { type: 'info', text: '[System] Error polling decision gate status.' }]);

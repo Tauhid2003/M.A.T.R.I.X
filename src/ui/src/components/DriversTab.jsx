@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function DriversTab() {
   const [gpuDriver, setGpuDriver] = useState(() => localStorage.getItem('ubuntu_driver_gpu') || 'nvidia');

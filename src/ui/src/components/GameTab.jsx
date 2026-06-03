@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 export default function GameTab() {
   const [score, setScore] = useState(0);
@@ -22,7 +22,7 @@ export default function GameTab() {
   const CELL_COUNT = 20; // 20x20 grid
 
   // Play synthesized Web Audio sounds
-  const playSound = (type) => {
+  const playSound = useCallback((type) => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
@@ -69,10 +69,10 @@ export default function GameTab() {
     } catch (e) {
       console.warn("Sound blocked by browser permissions:", e);
     }
-  };
+  }, []);
 
   // Place food at random coordinate (not overlapping snake)
-  const spawnFood = () => {
+  const spawnFood = useCallback(() => {
     let rx, ry;
     let overlapping = true;
     while (overlapping) {
@@ -81,30 +81,9 @@ export default function GameTab() {
       overlapping = snakeRef.current.some(part => part[0] === rx && part[1] === ry);
     }
     foodRef.current = [rx, ry];
-  };
+  }, []);
 
-  const startGame = () => {
-    playSound('start');
-    setScore(0);
-    setGameOver(false);
-    setGameStarted(true);
-    
-    snakeRef.current = [[10, 10], [10, 11], [10, 12]];
-    directionRef.current = 'UP';
-    spawnFood();
-
-    if (gameIntervalRef.current) clearInterval(gameIntervalRef.current);
-    
-    gameIntervalRef.current = setInterval(gameStep, 110);
-
-    setTimeout(() => {
-      if (canvasRef.current) {
-        canvasRef.current.focus();
-      }
-    }, 50);
-  };
-
-  const stopGame = (didCrash = true) => {
+  const stopGame = useCallback((didCrash = true) => {
     if (gameIntervalRef.current) clearInterval(gameIntervalRef.current);
     if (didCrash) {
       playSound('crash');
@@ -113,57 +92,9 @@ export default function GameTab() {
       setGameStarted(false);
       setGameOver(false);
     }
-  };
+  }, [playSound]);
 
-  const gameStep = () => {
-    const snake = [...snakeRef.current];
-    const head = [...snake[0]];
-    const dir = directionRef.current;
-
-    // Shift coordinates based on direction
-    if (dir === 'UP') head[1] -= 1;
-    else if (dir === 'DOWN') head[1] += 1;
-    else if (dir === 'LEFT') head[0] -= 1;
-    else if (dir === 'RIGHT') head[0] += 1;
-
-    // Check bounds crash
-    if (head[0] < 0 || head[0] >= CELL_COUNT || head[1] < 0 || head[1] >= CELL_COUNT) {
-      stopGame(true);
-      return;
-    }
-
-    // Check self collision crash
-    if (snake.some(part => part[0] === head[0] && part[1] === head[1])) {
-      stopGame(true);
-      return;
-    }
-
-    // Insert new head
-    snake.unshift(head);
-
-    // Check eat data node
-    if (head[0] === foodRef.current[0] && head[1] === foodRef.current[1]) {
-      playSound('eat');
-      setScore(prev => {
-        const nextScore = prev + 10;
-        if (nextScore > highScoreRef.current) {
-          highScoreRef.current = nextScore;
-          setHighScore(nextScore);
-          localStorage.setItem('matrix_hack_highscore', nextScore.toString());
-        }
-        return nextScore;
-      });
-      spawnFood();
-    } else {
-      // Remove tail
-      snake.pop();
-    }
-
-    snakeRef.current = snake;
-    drawGameBoard();
-  };
-
-  const drawGameBoard = () => {
+  const drawGameBoard = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -218,7 +149,76 @@ export default function GameTab() {
     ctx.beginPath();
     ctx.arc(fx + GRID_SIZE / 2, fy + GRID_SIZE / 2, GRID_SIZE / 2 + Math.sin(Date.now() / 150) * 2, 0, Math.PI * 2);
     ctx.stroke();
-  };
+  }, []);
+
+  const gameStep = useCallback(() => {
+    const snake = [...snakeRef.current];
+    const head = [...snake[0]];
+    const dir = directionRef.current;
+
+    // Shift coordinates based on direction
+    if (dir === 'UP') head[1] -= 1;
+    else if (dir === 'DOWN') head[1] += 1;
+    else if (dir === 'LEFT') head[0] -= 1;
+    else if (dir === 'RIGHT') head[0] += 1;
+
+    // Check bounds crash
+    if (head[0] < 0 || head[0] >= CELL_COUNT || head[1] < 0 || head[1] >= CELL_COUNT) {
+      stopGame(true);
+      return;
+    }
+
+    // Check self collision crash
+    if (snake.some(part => part[0] === head[0] && part[1] === head[1])) {
+      stopGame(true);
+      return;
+    }
+
+    // Insert new head
+    snake.unshift(head);
+
+    // Check eat data node
+    if (head[0] === foodRef.current[0] && head[1] === foodRef.current[1]) {
+      playSound('eat');
+      setScore(prev => {
+        const nextScore = prev + 10;
+        if (nextScore > highScoreRef.current) {
+          highScoreRef.current = nextScore;
+          setHighScore(nextScore);
+          localStorage.setItem('matrix_hack_highscore', nextScore.toString());
+        }
+        return nextScore;
+      });
+      spawnFood();
+    } else {
+      // Remove tail
+      snake.pop();
+    }
+
+    snakeRef.current = snake;
+    drawGameBoard();
+  }, [stopGame, playSound, spawnFood, drawGameBoard]);
+
+  const startGame = useCallback(() => {
+    playSound('start');
+    setScore(0);
+    setGameOver(false);
+    setGameStarted(true);
+    
+    snakeRef.current = [[10, 10], [10, 11], [10, 12]];
+    directionRef.current = 'UP';
+    spawnFood();
+
+    if (gameIntervalRef.current) clearInterval(gameIntervalRef.current);
+    
+    gameIntervalRef.current = setInterval(gameStep, 110);
+
+    setTimeout(() => {
+      if (canvasRef.current) {
+        canvasRef.current.focus();
+      }
+    }, 50);
+  }, [spawnFood, gameStep, playSound]);
 
   // Keyboard controls listener
   useEffect(() => {
@@ -257,7 +257,7 @@ export default function GameTab() {
       window.removeEventListener('keydown', handleKeyDown);
       if (gameIntervalRef.current) clearInterval(gameIntervalRef.current);
     };
-  }, [gameStarted, gameOver]);
+  }, [gameStarted, gameOver, startGame]);
 
   // Animation draw loop
   useEffect(() => {
@@ -268,7 +268,7 @@ export default function GameTab() {
     };
     loop();
     return () => cancelAnimationFrame(animFrame);
-  }, []);
+  }, [drawGameBoard]);
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', height: '100%', fontFamily: 'var(--font-sans)', color: '#FFF' }}>

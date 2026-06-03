@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Tabs from './components/Tabs';
 import TerminalTab from './components/TerminalTab';
 import BuildFactoryTab from './components/BuildFactoryTab';
 import SystemDaemonTab from './components/SystemDaemonTab';
@@ -106,8 +105,8 @@ function App() {
   const [terminalCommand, setTerminalCommand] = useState(null);
 
   // Dynamic system bar states
-  const [batteryLevel, setBatteryLevel] = useState(100);
-  const [isCharging, setIsCharging] = useState(true);
+  const [batteryLevel, setBatteryLevel] = useState(87);
+  const [isCharging, setIsCharging] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [volume, setVolume] = useState(80);
   const [quickSettingsOpen, setQuickSettingsOpen] = useState(false);
@@ -186,7 +185,7 @@ function App() {
             setPendingAction(null);
           }
         }
-      } catch (e) {
+      } catch {
         // Ignore daemon server disconnects during reboots
       }
     }, 2500);
@@ -238,10 +237,6 @@ function App() {
           setIsCharging(battery.charging);
         };
       });
-    } else {
-      // Fallback battery details for simulated charging
-      setBatteryLevel(87);
-      setIsCharging(false);
     }
 
     const handleOnline = () => setIsOnline(true);
@@ -1706,7 +1701,7 @@ function JSONSpecViewer({ file }) {
           else if (cls === 'null') color = '#abb2bf';
           return `<span style="color: ${color};">${match}</span>`;
         });
-    } catch (e) {
+    } catch {
       return txt;
     }
   };

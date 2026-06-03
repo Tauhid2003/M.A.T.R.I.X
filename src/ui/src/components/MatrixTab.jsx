@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 const LOCAL_AI_MODEL = {
   name: 'matrix-local-synapse',
@@ -37,14 +37,218 @@ const VOICE_COMMANDS = [
   { phrase: 'Matrix, summarize this OS', route: 'OS summary' }
 ];
 
+const JOKES = [
+  "Why do programmers prefer dark mode? Because light attracts bugs.",
+  "There are only 10 types of people in the world: those who understand binary and those who don't.",
+  "A SQL query walks into a bar, sees two tables, and asks... Can I JOIN you?",
+  "Why did the developer go broke? Because he used up all his cache.",
+  "I told my computer I needed a break. Now it won't stop sending me vacation ads.",
+  "Why do Java developers wear glasses? Because they can't C-sharp.",
+  "What's an AI's favorite meal? Chips and data.",
+  "Debugging: being the detective in a crime movie where you're also the murderer."
+];
+
+const QUOTES = [
+  "The only way to do great work is to love what you do. — Steve Jobs",
+  "Innovation distinguishes between a leader and a follower. — Steve Jobs",
+  "The future belongs to those who believe in the beauty of their dreams. — Eleanor Roosevelt",
+  "It does not matter how slowly you go as long as you do not stop. — Confucius",
+  "Success is not final, failure is not fatal: it is the courage to continue that counts. — Winston Churchill",
+  "Any sufficiently advanced technology is indistinguishable from magic. — Arthur C. Clarke",
+  "The best way to predict the future is to invent it. — Alan Kay",
+  "Engineering is the closest thing to magic that exists in the world. — Elon Musk"
+];
+
+const FACTS = [
+  "A single strand of spider silk is thinner than a human hair but five times stronger than steel of the same weight.",
+  "The first computer programmer was Ada Lovelace, who wrote algorithms for Charles Babbage's Analytical Engine in 1843.",
+  "Honey never spoils. Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still edible.",
+  "The total mass of all ants on Earth is roughly equal to the total mass of all humans.",
+  "An ESP32 microcontroller can perform 600 million instructions per second while consuming less power than an LED.",
+  "The entire codebase of the Apollo 11 guidance computer was about 145,000 lines — less than many modern web apps.",
+  "Wind turbines can generate electricity at wind speeds as low as 3 meters per second.",
+  "Digital twins can reduce product development costs by up to 50% according to recent industry studies."
+];
+
+const REPLIES = [
+  "You're welcome, Tauhid. Always here to assist.",
+  "Glad I could help. Let me know if there's anything else.",
+  "Thank you for the kind words. Systems are standing by.",
+  "Appreciated. My circuits are warmed by your feedback."
+];
+
+const TIPS = [
+  "Always write code as if the next person to maintain it is a violent psychopath who knows where you live.",
+  "Use version control from day one. Even for personal projects, Git saves lives.",
+  "Write tests before fixing bugs. A failing test proves the bug exists and proves when it's fixed.",
+  "Keep functions small and focused. If a function does more than one thing, split it.",
+  "Comment the why, not the what. Good code is self-documenting for the what.",
+  "Learn to read error messages carefully. 90% of debugging is reading.",
+  "Premature optimization is the root of all evil. Make it work, then make it fast.",
+  "Name variables as if you'll read them at 3 AM after being woken up by a production alert."
+];
+
+const EEE_FACTS = [
+  "Ohm's Law (V=IR) is the most fundamental relationship in electrical engineering, relating voltage, current, and resistance.",
+  "A digital twin is a virtual replica of a physical system that uses real-time sensor data to mirror its behavior and predict failures.",
+  "The ESP32 microcontroller has dual-core processing, built-in WiFi and Bluetooth, and costs less than 5 dollars.",
+  "Kirchhoff's Current Law states that the total current entering a junction equals the total current leaving it.",
+  "MQTT is a lightweight messaging protocol designed for IoT devices with limited bandwidth and processing power.",
+  "Power factor correction can reduce electricity waste by aligning voltage and current waveforms in AC systems.",
+  "A PID controller uses Proportional, Integral, and Derivative terms to minimize error in control systems."
+];
+
+const SIMULATED_PROMPTS = [
+  "Run neofetch stats check",
+  "Scan security sandbox constraints",
+  "Show system telemetry monitor",
+  "Run diagnostics audit",
+  "Tell me a joke",
+  "What time is it",
+  "Who am I",
+  "Give me a motivational quote",
+  "Tell me a fun fact",
+  "What can you do",
+  "My projects",
+  "Give me a coding tip",
+  "Tell me about circuits",
+  "Summarize this OS",
+  "My scholarships and awards",
+  "My certifications",
+  "Flip a coin",
+  "Roll dice"
+];
+
+// Helper functions (hoisted outside)
+const getRandomJoke = () => JOKES[Math.floor(Math.random() * JOKES.length)];
+const getRandomQuote = () => QUOTES[Math.floor(Math.random() * QUOTES.length)];
+const getRandomFact = () => FACTS[Math.floor(Math.random() * FACTS.length)];
+const getRandomReply = () => REPLIES[Math.floor(Math.random() * REPLIES.length)];
+const getRandomNumber1to100 = () => Math.floor(Math.random() * 100) + 1;
+const flipCoin = () => Math.random() > 0.5 ? "Coin flip result: Heads." : "Coin flip result: Tails.";
+const generateRandomPassword = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&*';
+  let pass = '';
+  for (let i = 0; i < 16; i++) {
+    pass += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return pass;
+};
+const generateRandomHex = () => '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+const generateRandomPalette = () => [
+  generateRandomHex(),
+  generateRandomHex(),
+  generateRandomHex(),
+  generateRandomHex(),
+  generateRandomHex()
+];
+const getRandomTip = () => TIPS[Math.floor(Math.random() * TIPS.length)];
+const getRandomEeeFact = () => EEE_FACTS[Math.floor(Math.random() * EEE_FACTS.length)];
+const getRandomLatency = () => Math.floor(Math.random() * 200 + 40);
+const getRandomSimulatedPrompt = () => SIMULATED_PROMPTS[Math.floor(Math.random() * SIMULATED_PROMPTS.length)];
+const getCurrentTimestamp = () => Date.now();
+
+const getLocalSynapseResponse = (rawText) => {
+  const text = rawText.toLowerCase();
+  if (text.includes('tauhid') || text.includes('shaik') || text.includes('creator') || text.includes('developer') || text.includes('who am i') || text.includes('owner') || text.includes('myself')) {
+    return 'You are Shaik Tauhidur Rahman, an EEE honors student at AIUB. Executive of AIUB R&D Club, Campus Ambassador for EWU Robofest 2026. Dean\'s List honoree, Merit & Academic Scholar. You specialize in Cyber-Physical Systems, Digital Twins, Embedded Systems, and Edge AI. Portfolio: strtauhid.app.';
+  }
+  if (text.includes('project') || text.includes('portfolio') || text.includes('work')) {
+    return 'Your projects: 1) DC Motor Digital Twin (ESP32 + ACS712 + MQTT + state-space estimation), 2) Wind Turbine Simulator (anemometer + QBlade Cp curves), 3) Home Power Distribution Board (MCB + KCL validation). All on strtauhid.app.';
+  }
+  if (text.includes('publications') || text.includes('research') || text.includes('paper')) {
+    return 'Your publication: "A Digital Twin Approach for Smart Monitoring of DC Motors with Real-Time Fault Analysis and Power Evaluation" — IEEE format, first author, submitted to WiDS NSU Conference 2026. DOI: 10.13140/RG.2.2.34869.13282/1.';
+  }
+  if (text.includes('education') || text.includes('university') || text.includes('degree') || text.includes('aiub')) {
+    return 'BSc EEE at AIUB (2024-2027), majoring in Electronics & Intelligence Systems. Previously at Rajshahi College, Rajshahi Govt City College (HSC), and Rajshahi Cantonment Board School (SSC).';
+  }
+  if (text.includes('scholarship') || text.includes('award') || text.includes('honor') || text.includes('dean')) {
+    return 'Dean\'s List (AIUB Spring 2024-25), Merit Scholarship (AIUB Fall 2024-25), Academic Scholarship (AIUB Fall 2024-25), Rajshahi Zilla Parishad Scholarship (HSC Merit 2023).';
+  }
+  if (text.includes('skill') || text.includes('tech stack') || text.includes('competenc')) {
+    return 'Skills: ESP32/STM32, PCB Design, C/C++, Python, MATLAB/Simulink, COMSOL, QBlade, AutoCAD, MQTT, ThingSpeak, Git, LaTeX, PID Control, Rust basics.';
+  }
+  if (text.includes('contact') || text.includes('email') || text.includes('linkedin') || text.includes('github')) {
+    return 'Contact: strtauhid200307@gmail.com | GitHub: Tauhid2003 | LinkedIn: shaik-tauhidur-rahman | Portfolio: strtauhid.app';
+  }
+  if (text.includes('certification') || text.includes('training') || text.includes('british council') || text.includes('ieee')) {
+    return 'Certifications: Additive Manufacturing & Digital Twins (Birmingham/British Council 2025), Industry 4.0 to 5.0 (British Council 2025), IEEE Authorship Symposium (Sep 2025), QBlade & Research Writing (AIUB R&D 2025).';
+  }
+  if (text.includes('ambition') || text.includes('goal') || text.includes('future') || text.includes('dream')) {
+    return 'Ambition: MS/PhD in Robotics & Intelligent Control Systems. Mission: solving industrial automation & smart grid challenges through cyber-physical modeling and self-diagnostic controls.';
+  }
+  if (text.includes('club') || text.includes('r&d') || text.includes('leadership') || text.includes('robofest')) {
+    return 'Leadership: Executive at AIUB R&D Club (May 2026-present), Researcher at AIUB R&D Club (Jul 2025-May 2026), Campus Ambassador for EWU National Robofest 2026.';
+  }
+  if (text.includes('website') || text.includes('strtauhid')) {
+    return 'Your portfolio at strtauhid.app features a live DC Motor Digital Twin simulator, interactive shell, education history, skills matrix, projects, publications, and engineering notes.';
+  }
+  if (text.includes('architecture') || text.includes('module')) {
+    return 'Offline architecture core is active: scheduler, filesystem, process manager, service manager, UI shell, and ISO builder are separated into testable modules.';
+  }
+  if (text.includes('model') || text.includes('ai')) {
+    return 'AI control layer upgraded. Default target model is qwen3:8b, with optional qwen3:30b and qwen3-coder:30b profiles for stronger local machines.';
+  }
+  if (text.includes('core') || text.includes('status')) {
+    return 'CORE-001 is available offline. The AI orchestrator can plan local actions, query core status, route apps, and protect risky build or package operations with confirmation gates.';
+  }
+  if (text.includes('help') || text.includes('what can you do') || text.includes('capabilities') || text.includes('features')) {
+    return 'I can: open apps, run diagnostics, control the scheduler, tell jokes, give motivational quotes, share fun facts, do math, convert units, generate passwords and color palettes, set timers, encode morse code, count words, flip coins, roll dice, give coding tips, share EEE engineering knowledge, tell the time and date, summarize this OS, and answer questions about you and your projects.';
+  }
+  if (text.includes('offline') || text.includes('internet')) {
+    return 'Runtime internet dependency is disabled for core behavior. I am answering through the Matrix local synapse profile.';
+  }
+  if (text.includes('joke') || text.includes('funny')) {
+    const localJokes = [
+      'Why do programmers prefer dark mode? Because light attracts bugs.',
+      'There are only 10 types of people: those who understand binary and those who don\'t.',
+      'A SQL query walks into a bar, sees two tables, and asks: Can I JOIN you?'
+    ];
+    return localJokes[Math.floor(Math.random() * localJokes.length)];
+  }
+  if (text.includes('time') || text.includes('clock') || text.includes('date') || text.includes('today')) {
+    return `Current local time: ${new Date().toLocaleString()}`;
+  }
+  if (text.includes('motivat') || text.includes('quote') || text.includes('inspire')) {
+    const localQuotes = [
+      'The best way to predict the future is to invent it. — Alan Kay',
+      'Engineering is the closest thing to magic that exists in the world. — Elon Musk',
+      'Innovation distinguishes between a leader and a follower. — Steve Jobs'
+    ];
+    return localQuotes[Math.floor(Math.random() * localQuotes.length)];
+  }
+  if (text.includes('fact') || text.includes('trivia') || text.includes('did you know')) {
+    const localFacts = [
+      'The first computer programmer was Ada Lovelace in 1843.',
+      'An ESP32 can perform 600 million instructions per second.',
+      'Digital twins can reduce product development costs by up to 50%.'
+    ];
+    return localFacts[Math.floor(Math.random() * localFacts.length)];
+  }
+  if (text.includes('thank') || text.includes('thanks') || text.includes('good job')) {
+    return 'You are welcome, Tauhid. Always here to assist.';
+  }
+  if (text.includes('hello') || text.includes('hi') || text.includes('hey')) {
+    return 'Hello, Shaik Tauhidur Rahman. Local AI command routing is active. Central systems are standing by.';
+  }
+  return `Matrix local synapse processed your query: "${rawText}". I didn't find a specific system route, but you can try asking me for help, jokes, facts, quotes, time, math, or say a command like open terminal, run diagnostics, or show telemetry.`;
+};
+
+if (typeof window !== 'undefined' && !window.__matrixBootTime) {
+  window.__matrixBootTime = Date.now();
+}
+
 export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
-  if (!window.__matrixBootTime) window.__matrixBootTime = Date.now();
   const [status, setStatus] = useState('dormant'); // dormant, listening, processing, speaking
   const [logs, setLogs] = useState([
     { sender: 'Matrix', text: 'M.A.T.R.I.X. local AI control layer initialized.' }
   ]);
-  const [recognition, setRecognition] = useState(null);
-  const [isSupported, setIsSupported] = useState(true);
+  const recognitionRef = useRef(null);
+  const [isSupported] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    return !!SpeechRecognition;
+  });
   
   // Ollama states
   const [models, setModels] = useState([LOCAL_AI_MODEL, ...POWER_AI_MODELS]);
@@ -70,12 +274,11 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
   const [isHandsFree, setIsHandsFree] = useState(false);
   const isHandsFreeRef = useRef(false);
   const [systemPrompt, setSystemPrompt] = useState('You are Matrix, an advanced operating system orchestrator AI. Answer concisely in 1 or 2 sentences.');
-  const [llmTemp, setLlmTemp] = useState(0.7);
-  const [llmTopP, setLlmTopP] = useState(0.9);
-  const [llmContext, setLlmContext] = useState(4096);
+  const llmTemp = 0.7;
+  const llmTopP = 0.9;
+  const llmContext = 4096;
 
   // Web Audio Mic Volume analysis
-  const [micVolume, setMicVolume] = useState(0);
   const micAnalyserRef = useRef(null);
   const micStreamRef = useRef(null);
   const audioCtxRef = useRef(null);
@@ -98,149 +301,14 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
   const [lruCacheList, setLruCacheList] = useState([]);
   const [daemonLogs, setDaemonLogs] = useState("[Ingress System] Log stream loading...");
 
-  // Generate sphere coordinates once
-  useEffect(() => {
-    const points = [];
-    const goldenRatio = (1 + Math.sqrt(5)) / 2;
-    const angleIncrement = 2 * Math.PI * goldenRatio;
-    for (let i = 0; i < N; i++) {
-      const t = i / N;
-      const inclination = Math.acos(1 - 2 * t);
-      const azimuth = angleIncrement * i;
-      const x = Math.sin(inclination) * Math.cos(azimuth);
-      const y = Math.sin(inclination) * Math.sin(azimuth);
-      const z = Math.cos(inclination);
-      points.push({ x, y, z });
-    }
-    spherePointsRef.current = points;
+  const processVoiceCommandRef = useRef(null);
+  const startListeningRef = useRef(null);
+
+  const addLog = useCallback((sender, text) => {
+    setLogs(prev => [...prev, { sender, text }]);
   }, []);
 
-  // Poll database status to sync scheduler UI from SQLite backend
-  useEffect(() => {
-    let isMounted = true;
-    
-    const syncSchedulerData = async () => {
-      try {
-        const res = await fetch('/api/scheduler/status');
-        if (res.ok && isMounted) {
-          const data = await res.json();
-          setSchedulerTasks(data.tasks || []);
-          setSchedulerAlgo(data.algorithm ? data.algorithm.toLowerCase() : 'priority');
-          setSchedulerRunning(data.isRunning);
-          
-          if (data.metrics) {
-            setCacheHits(data.metrics.hits || 0);
-            setCacheMisses(data.metrics.misses || 0);
-          }
-          setLruCacheList(data.cache_states || []);
-          
-          // Find running task
-          const running = (data.tasks || []).find(t => t.status === 'running');
-          setActiveTask(running || null);
-        }
-      } catch (e) {
-        console.warn("Scheduler API not reachable (dev server offline).");
-      }
-    };
-
-    const fetchDaemonLogs = async () => {
-      try {
-        const res = await fetch('/api/scheduler/logs');
-        if (res.ok && isMounted) {
-          const text = await res.text();
-          setDaemonLogs(text);
-        }
-      } catch (e) {}
-    };
-
-    syncSchedulerData();
-    fetchDaemonLogs();
-    
-    const statusInterval = setInterval(syncSchedulerData, 3000);
-    const logsInterval = setInterval(fetchDaemonLogs, 3000);
-    
-    return () => {
-      isMounted = false;
-      clearInterval(statusInterval);
-      clearInterval(logsInterval);
-    };
-  }, []);
-
-  const startMicAnalysis = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micStreamRef.current = stream;
-      
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      const ctx = new AudioCtx();
-      audioCtxRef.current = ctx;
-      
-      const source = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
-      micAnalyserRef.current = analyser;
-
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      
-      const checkVolume = () => {
-        if (!micAnalyserRef.current) return;
-        analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
-        }
-        const avg = sum / dataArray.length;
-        setMicVolume(avg);
-        micVolumeRef.current = avg;
-        
-        micRafIdRef.current = requestAnimationFrame(checkVolume);
-      };
-      
-      micRafIdRef.current = requestAnimationFrame(checkVolume);
-    } catch (e) {
-      console.warn("Could not start mic analyzer:", e);
-    }
-  };
-
-  const stopMicAnalysis = () => {
-    if (micRafIdRef.current) {
-      cancelAnimationFrame(micRafIdRef.current);
-      micRafIdRef.current = null;
-    }
-    if (micStreamRef.current) {
-      micStreamRef.current.getTracks().forEach(t => t.stop());
-      micStreamRef.current = null;
-    }
-    if (audioCtxRef.current) {
-      audioCtxRef.current.close();
-      audioCtxRef.current = null;
-    }
-    micAnalyserRef.current = null;
-    setMicVolume(0);
-    micVolumeRef.current = 0;
-  };
-
-  // Cleanup mic resources on unmount
-  useEffect(() => {
-    return () => stopMicAnalysis();
-  }, []);
-
-  const toggleHandsFree = (val) => {
-    setIsHandsFree(val);
-    isHandsFreeRef.current = val;
-    playSynthSound('click');
-    if (val) {
-      addLog('Matrix', 'Hands-free voice routing enabled. Speak a Matrix command.');
-      speakVocalFeedback("Hands-free link active.");
-    } else {
-      addLog('Matrix', 'Hands-Free cognitive link disengaged.');
-      speakVocalFeedback("Hands-free link offline.");
-    }
-  };
-
-  // Initialize Web Audio Sci-Fi Synthesizer
-  const playSynthSound = (type) => {
+  const playSynthSound = useCallback((type) => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
@@ -296,295 +364,77 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
         osc.start(now);
         osc.stop(now + 0.4);
       }
-      // Close AudioContext after the longest sound duration (0.4s) to prevent leaks
       setTimeout(() => ctx.close(), 500);
-    } catch (e) {
-      console.warn("Web Audio block:", e);
+    } catch {
+      // Ignored
     }
+  }, []);
+
+  const normalizeVoiceDirective = (rawText) => {
+    const cleaned = rawText.trim();
+    const lower = cleaned.toLowerCase();
+    const wakeWords = ['hey matrix', 'ok matrix', 'matrix'];
+    const matchedWake = wakeWords.find(wake => lower === wake || lower.startsWith(`${wake} `));
+    if (!matchedWake) return cleaned;
+    const stripped = cleaned.slice(matchedWake.length).replace(/^[:,\s]+/, '').trim();
+    if (!stripped) return 'core status';
+    return stripped;
   };
 
-  // Discover Ollama models and query tags
-  useEffect(() => {
-    const checkOllama = async () => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1200); // 1.2s timeout
-        
-        const response = await fetch('http://localhost:11434/api/tags', { signal: controller.signal });
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.models && data.models.length > 0) {
-            setModels(data.models);
-            setSelectedModel(data.models[0].name);
-            setOllamaStatus('online');
-            addLog('System', `Ollama core detected. Connected to local runtime: ${data.models[0].name}`);
-          } else {
-            setModels([LOCAL_AI_MODEL, ...POWER_AI_MODELS]);
-            setSelectedModel('qwen3:8b');
-            setOllamaStatus('local');
-            addLog('System', 'Ollama is online but no model weights were found. Using Matrix local synapse with Qwen3 orchestration profile.');
-          }
+  const startMicAnalysis = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+      
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioCtx();
+      audioCtxRef.current = ctx;
+      
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      micAnalyserRef.current = analyser;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      
+      const checkVolume = () => {
+        if (!micAnalyserRef.current) return;
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
         }
-      } catch (e) {
-        setModels([LOCAL_AI_MODEL, ...POWER_AI_MODELS]);
-        setSelectedModel('qwen3:8b');
-        setOllamaStatus('local');
-        addLog('System', 'Local Ollama node not detected. Matrix local synapse is active offline with Qwen3 8B as the target power model.');
-      }
-    };
-    checkOllama();
-  }, []);
-
-  // Initialize Speech Synthesis Voices
-  useEffect(() => {
-    if (!window.speechSynthesis) return;
-    const loadVoices = () => {
-      const allVoices = window.speechSynthesis.getVoices();
-      setVoices(allVoices);
-      const defaultVoice = allVoices.find(v => v.name.toLowerCase().includes('zira')) || 
-                           allVoices.find(v => v.lang.includes('en-GB') && v.name.toLowerCase().includes('google')) || 
-                           allVoices.find(v => v.lang.includes('en-GB')) ||
-                           allVoices.find(v => v.lang.includes('en-US')) || 
-                           allVoices[0];
-      if (defaultVoice) {
-        setSelectedVoice(defaultVoice.name);
-      }
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
-  }, []);
-
-  // Ref to processVoiceCommand to prevent stale closures in Speech Recognition callback
-  const processVoiceCommandRef = useRef(null);
-  useEffect(() => {
-    processVoiceCommandRef.current = processVoiceCommand;
-  });
-
-  // Initialize Web Speech API Recognition
-  useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setIsSupported(false);
-      return;
+        const avg = sum / dataArray.length;
+        micVolumeRef.current = avg;
+        
+        micRafIdRef.current = requestAnimationFrame(checkVolume);
+      };
+      
+      micRafIdRef.current = requestAnimationFrame(checkVolume);
+    } catch (err) {
+      console.warn("Could not start mic analyzer:", err);
     }
-
-    const rec = new SpeechRecognition();
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.lang = 'en-US';
-
-    rec.onstart = () => {
-      setStatus('listening');
-      setVoiceWakeArmed(true);
-      playSynthSound('listening');
-      addLog('Matrix', 'Acoustic ingress open. Say: "Matrix" followed by a command.');
-      startMicAnalysis();
-    };
-
-    rec.onerror = (e) => {
-      console.error(e);
-      setStatus('dormant');
-      setVoiceWakeArmed(false);
-      playSynthSound('error');
-      addLog('Matrix', 'Acoustic link blocked or timed out.');
-      stopMicAnalysis();
-    };
-
-    rec.onend = () => {
-      setStatus(prev => (prev === 'listening' ? 'dormant' : prev));
-      setVoiceWakeArmed(false);
-      stopMicAnalysis();
-    };
-
-    rec.onresult = (e) => {
-      const transcript = e.results[0][0].transcript;
-      setLastTranscript(transcript);
-      if (processVoiceCommandRef.current) {
-        processVoiceCommandRef.current(transcript);
-      }
-    };
-
-    setRecognition(rec);
   }, []);
 
-  // JARVIS-Style 3D Holographic Canvas Particle Core Animation Loop
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let animationFrameId;
-    let rotX = 0.5;
-    let rotY = 0.5;
-    let rotZ = 0.2;
-    let angle = 0;
+  const stopMicAnalysis = useCallback(() => {
+    if (micRafIdRef.current) {
+      cancelAnimationFrame(micRafIdRef.current);
+      micRafIdRef.current = null;
+    }
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach(t => t.stop());
+      micStreamRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close();
+      audioCtxRef.current = null;
+    }
+    micAnalyserRef.current = null;
+    micVolumeRef.current = 0;
+  }, []);
 
-    // Handle high DPI screens
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = 190 * dpr;
-    canvas.height = 190 * dpr;
-    ctx.scale(dpr, dpr);
-
-    const draw = () => {
-      if (!ctx || !canvas) return;
-      
-      const width = canvas.width / dpr;
-      const height = canvas.height / dpr;
-      const cX = width / 2;
-      const cY = height / 2;
-      
-      ctx.clearRect(0, 0, width, height);
-
-      // Sphere theme colors
-      let pColor = 'rgba(0, 255, 255, '; // Cyan
-      let ringColor = 'rgba(0, 255, 255, 0.15)';
-      let activeColor = 'var(--accent-cyan)';
-      
-      if (status === 'listening') {
-        pColor = 'rgba(233, 84, 32, '; // Orange
-        ringColor = 'rgba(233, 84, 32, 0.15)';
-        activeColor = 'var(--ubuntu-orange)';
-      } else if (status === 'processing') {
-        pColor = 'rgba(167, 139, 250, '; // Violet
-        ringColor = 'rgba(167, 139, 250, 0.15)';
-        activeColor = 'var(--accent-violet)';
-      } else if (status === 'speaking') {
-        pColor = 'rgba(0, 255, 255, '; // Cyan
-        ringColor = 'rgba(0, 255, 255, 0.22)';
-        activeColor = 'var(--accent-cyan)';
-      }
-
-      // Rotate sphere angles
-      let speedFactor = 1.0;
-      if (status === 'listening') speedFactor = 1.6;
-      else if (status === 'processing') speedFactor = 3.6;
-      else if (status === 'speaking') speedFactor = 2.0;
-      
-
-      rotY += 0.006 * speedFactor;
-      rotX += 0.004 * speedFactor;
-      rotZ += 0.002 * speedFactor;
-
-      // Base radius of the sphere
-      const amp = micVolumeRef.current / 255;
-      const breath = Math.sin(Date.now() / 150) * 0.08;
-      const scale = 1.0 + amp * 0.7 + (status === 'speaking' ? breath : 0);
-      const baseRadius = 55 * scale;
-
-      const finalCX = cX;
-      const finalCY = cY;
-
-      // Draw horizontal orbital rings (perspective ellipses)
-      const rings = [
-        { hOffset: -0.35, rMul: 1.25, rotSpeed: 0.015 },
-        { hOffset: 0.0, rMul: 1.45, rotSpeed: -0.02 },
-        { hOffset: 0.35, rMul: 1.25, rotSpeed: 0.01 }
-      ];
-
-      ctx.lineWidth = 1;
-      rings.forEach((ring) => {
-        ctx.strokeStyle = ringColor;
-        ctx.beginPath();
-        
-        const ringAngleOffset = angle * ring.rotSpeed;
-        const ptsCount = 45;
-        for (let j = 0; j <= ptsCount; j++) {
-          const a = (j / ptsCount) * Math.PI * 2 + ringAngleOffset;
-          const rx0 = Math.cos(a) * ring.rMul;
-          const rz0 = Math.sin(a) * ring.rMul;
-          const ry0 = ring.hOffset;
-
-          // 3D Rotations
-          let ry1 = ry0 * Math.cos(rotX) - rz0 * Math.sin(rotX);
-          let rz1 = ry0 * Math.sin(rotX) + rz0 * Math.cos(rotX);
-          let rx1 = rx0 * Math.cos(rotY) - rz1 * Math.sin(rotY);
-          let rz2 = rx0 * Math.sin(rotY) + rz1 * Math.cos(rotY);
-
-          // Perspective scaling
-          const rpf = 1.8 / (2.5 - rz2);
-          const rpx = finalCX + rx1 * baseRadius * rpf;
-          const rpy = finalCY + ry1 * baseRadius * rpf;
-
-          if (j === 0) {
-            ctx.moveTo(rpx, rpy);
-          } else {
-            ctx.lineTo(rpx, rpy);
-          }
-        }
-        ctx.stroke();
-      });
-
-      // Project and draw particles
-      if (spherePointsRef.current.length > 0) {
-        const rotatedPoints = spherePointsRef.current.map(p => {
-          // Rotate X
-          let y1 = p.y * Math.cos(rotX) - p.z * Math.sin(rotX);
-          let z1 = p.y * Math.sin(rotX) + p.z * Math.cos(rotX);
-          // Rotate Y
-          let x1 = p.x * Math.cos(rotY) - z1 * Math.sin(rotY);
-          let z2 = p.x * Math.sin(rotY) + z1 * Math.cos(rotY);
-          // Rotate Z
-          let x2 = x1 * Math.cos(rotZ) - y1 * Math.sin(rotZ);
-          let y2 = x1 * Math.sin(rotZ) + y1 * Math.cos(rotZ);
-
-          return { x: x2, y: y2, z: z2 };
-        });
-
-        // Painter's algorithm sorting
-        rotatedPoints.sort((a, b) => a.z - b.z);
-
-        rotatedPoints.forEach(p => {
-          const pf = 1.8 / (2.5 - p.z);
-          const px = finalCX + p.x * baseRadius * pf;
-          const py = finalCY + p.y * baseRadius * pf;
-          const size = (p.z + 1) * 1.5 + 0.4;
-          const alpha = (p.z + 1) / 2 * 0.75 + 0.25;
-
-          ctx.fillStyle = pColor + alpha + ')';
-          ctx.beginPath();
-          ctx.arc(px, py, size, 0, Math.PI * 2);
-          ctx.fill();
-        });
-      }
-
-      // Center core glowing circle
-      ctx.fillStyle = activeColor;
-      ctx.beginPath();
-      ctx.arc(finalCX, finalCY, 6 + (amp * 5), 0, Math.PI * 2);
-      ctx.fill();
-
-      angle += 0.05;
-      animationFrameId = requestAnimationFrame(draw);
-    };
-
-    draw();
-
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, [status]);
-
-  // System temperature fluctuations
-  useEffect(() => {
-    const tInterval = setInterval(() => {
-      setDiagTemp(prev => {
-        const change = parseFloat((prev + (Math.random() * 0.4 - 0.2)).toFixed(1));
-        return Math.max(38, Math.min(55, change));
-      });
-    }, 4000);
-    return () => clearInterval(tInterval);
-  }, [status]);
-
-  const addLog = (sender, text) => {
-    setLogs(prev => [...prev, { sender, text }]);
-  };
-
-  // Text-To-Speech function using SpeechSynthesis
-  const speakVocalFeedback = (text) => {
+  const speakVocalFeedback = useCallback((text) => {
     if (!window.speechSynthesis) return;
     
     window.speechSynthesis.cancel();
@@ -607,34 +457,17 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
       setStatus('dormant');
       if (isHandsFreeRef.current) {
         setTimeout(() => {
-          if (isHandsFreeRef.current) {
-            startListening();
+          if (isHandsFreeRef.current && startListeningRef.current) {
+            startListeningRef.current();
           }
         }, 400);
       }
     };
 
     window.speechSynthesis.speak(utterance);
-  };
+  }, [selectedVoice, voices, voicePitch, voiceRate]);
 
-  const startListening = () => {
-    playSynthSound('click');
-    if (!isSupported) {
-      setLastTranscript('Speech API unavailable. Running simulated voice command.');
-      simulateQuery();
-      return;
-    }
-    if (recognition && status === 'dormant') {
-      try {
-        recognition.continuous = isHandsFreeRef.current;
-        recognition.start();
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  };
-
-  const executeSystemDiagnostics = () => {
+  const executeSystemDiagnostics = useCallback(() => {
     if (isDiagnosing) return;
     setIsDiagnosing(true);
     setDiagnosticProgress(5);
@@ -660,18 +493,9 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
         }
       }, (idx + 1) * 1000);
     });
-  };
+  }, [isDiagnosing, ollamaStatus, addLog, playSynthSound, speakVocalFeedback]);
 
-  useEffect(() => {
-    const handleTriggerDiag = () => {
-      executeSystemDiagnostics();
-    };
-    window.addEventListener('matrix-trigger-diag', handleTriggerDiag);
-    return () => window.removeEventListener('matrix-trigger-diag', handleTriggerDiag);
-  }, [ollamaStatus, isDiagnosing]);
-
-  // Real-Time Scheduler policy modifiers (communicates directly with SQLite backend daemon)
-  const handleSetAlgorithm = async (algo) => {
+  const handleSetAlgorithm = useCallback(async (algo) => {
     playSynthSound('click');
     setSchedulerAlgo(algo);
     try {
@@ -682,10 +506,12 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
       });
       addLog('Matrix', `Scheduler policy changed to "${algo.toUpperCase()}".`);
       speakVocalFeedback(`Queue scheduling policy updated to ${algo.toUpperCase()}.`);
-    } catch(e) {}
-  };
+    } catch {
+      // Ignored
+    }
+  }, [playSynthSound, speakVocalFeedback, addLog]);
 
-  const handleToggleDaemon = async () => {
+  const handleToggleDaemon = useCallback(async () => {
     playSynthSound('click');
     const endpoint = schedulerRunning ? '/api/scheduler/stop-daemon' : '/api/scheduler/start-daemon';
     try {
@@ -701,10 +527,12 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
           speakVocalFeedback("Scheduler daemon offline.");
         }
       }
-    } catch (e) {}
-  };
+    } catch {
+      // Ignored
+    }
+  }, [schedulerRunning, playSynthSound, speakVocalFeedback, addLog]);
 
-  const handleResetQueue = async () => {
+  const handleResetQueue = useCallback(async () => {
     playSynthSound('click');
     try {
       const res = await fetch('/api/scheduler/reset', { method: 'POST' });
@@ -712,17 +540,19 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
         addLog('Matrix', 'Host SQLite scheduler tasks flushed and re-seeded with defaults.');
         speakVocalFeedback("Scheduler database reset complete.");
       }
-    } catch (e) {}
-  };
+    } catch {
+      // Ignored
+    }
+  }, [playSynthSound, speakVocalFeedback, addLog]);
 
-  const processVoiceCommand = async (rawText) => {
+  const processVoiceCommand = useCallback(async (rawText) => {
     setStatus('processing');
     const normalizedText = normalizeVoiceDirective(rawText);
     setLastTranscript(rawText);
     addLog('User', rawText);
 
     const cmd = normalizedText.toLowerCase();
-    let responseText = "Processing directive.";
+    let responseText;
     
     if (cmd.includes('stand down') || cmd.includes('normalize status') || cmd.includes('normalize system') || cmd.includes('go to sleep')) {
       setIsHandsFree(false);
@@ -737,7 +567,6 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
     // Scheduler voice activations
     if (cmd.includes('simulate fifo') || cmd.includes('run fifo scheduler')) {
       handleSetAlgorithm('fifo');
-      // Auto start daemon if not running
       if (!schedulerRunning) handleToggleDaemon();
       return;
     }
@@ -877,7 +706,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
     }
 
     if (cmd.includes('contact') || cmd.includes('email') || cmd.includes('social') || cmd.includes('linkedin') || cmd.includes('github')) {
-      responseText = "Your contact information: Email — strtauhid200307 at gmail.com. GitHub — Tauhid2003. LinkedIn — shaik-tauhidur-rahman. Facebook — Shaik.Tauhidur.Rahman. Portfolio website — strtauhid.app.";
+      responseText = "Your contact information: Email — strtauhid200307 at gmail.com. GitHub — Tauhid2003. LinkedIn — shaik-tauhidur-rahman. Facebook — Shaik.Tauhid.Rahman. Portfolio website — strtauhid.app.";
       speakVocalFeedback(responseText);
       addLog('Matrix', responseText);
       return;
@@ -936,7 +765,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
     }
 
     // --- Math & Calculations ---
-    if (cmd.includes('calculate') || cmd.includes('math') || cmd.includes('what is') && (cmd.includes('+') || cmd.includes('-') || cmd.includes('*') || cmd.includes('/'))) {
+    if (cmd.includes('calculate') || cmd.includes('math') || (cmd.includes('what is') && (cmd.includes('+') || cmd.includes('-') || cmd.includes('*') || cmd.includes('/')))) {
       try {
         const expr = cmd.replace(/.*(?:calculate|math|what is)\s*/i, '').replace(/[^0-9+\-*/.() ]/g, '');
         if (expr.trim()) {
@@ -945,7 +774,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
         } else {
           responseText = "Please provide a math expression. For example: calculate 25 times 4.";
         }
-      } catch(e) {
+      } catch {
         responseText = "I could not parse that math expression. Try something like: calculate 12 + 8.";
       }
       speakVocalFeedback(responseText);
@@ -955,17 +784,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
 
     // --- Jokes & Entertainment ---
     if (cmd.includes('joke') || cmd.includes('funny') || cmd.includes('make me laugh')) {
-      const jokes = [
-        "Why do programmers prefer dark mode? Because light attracts bugs.",
-        "There are only 10 types of people in the world: those who understand binary and those who don't.",
-        "A SQL query walks into a bar, sees two tables, and asks... Can I JOIN you?",
-        "Why did the developer go broke? Because he used up all his cache.",
-        "I told my computer I needed a break. Now it won't stop sending me vacation ads.",
-        "Why do Java developers wear glasses? Because they can't C-sharp.",
-        "What's an AI's favorite meal? Chips and data.",
-        "Debugging: being the detective in a crime movie where you're also the murderer."
-      ];
-      responseText = jokes[Math.floor(Math.random() * jokes.length)];
+      responseText = getRandomJoke();
       speakVocalFeedback(responseText);
       addLog('Matrix', responseText);
       return;
@@ -973,17 +792,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
 
     // --- Motivational Quotes ---
     if (cmd.includes('motivat') || cmd.includes('inspire') || cmd.includes('quote')) {
-      const quotes = [
-        "The only way to do great work is to love what you do. — Steve Jobs",
-        "Innovation distinguishes between a leader and a follower. — Steve Jobs",
-        "The future belongs to those who believe in the beauty of their dreams. — Eleanor Roosevelt",
-        "It does not matter how slowly you go as long as you do not stop. — Confucius",
-        "Success is not final, failure is not fatal: it is the courage to continue that counts. — Winston Churchill",
-        "Any sufficiently advanced technology is indistinguishable from magic. — Arthur C. Clarke",
-        "The best way to predict the future is to invent it. — Alan Kay",
-        "Engineering is the closest thing to magic that exists in the world. — Elon Musk"
-      ];
-      responseText = quotes[Math.floor(Math.random() * quotes.length)];
+      responseText = getRandomQuote();
       speakVocalFeedback(responseText);
       addLog('Matrix', responseText);
       return;
@@ -991,17 +800,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
 
     // --- Fun Facts ---
     if (cmd.includes('fun fact') || cmd.includes('random fact') || cmd.includes('trivia') || cmd.includes('did you know')) {
-      const facts = [
-        "A single strand of spider silk is thinner than a human hair but five times stronger than steel of the same weight.",
-        "The first computer programmer was Ada Lovelace, who wrote algorithms for Charles Babbage's Analytical Engine in 1843.",
-        "Honey never spoils. Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still edible.",
-        "The total mass of all ants on Earth is roughly equal to the total mass of all humans.",
-        "An ESP32 microcontroller can perform 600 million instructions per second while consuming less power than an LED.",
-        "The entire codebase of the Apollo 11 guidance computer was about 145,000 lines — less than many modern web apps.",
-        "Wind turbines can generate electricity at wind speeds as low as 3 meters per second.",
-        "Digital twins can reduce product development costs by up to 50% according to recent industry studies."
-      ];
-      responseText = facts[Math.floor(Math.random() * facts.length)];
+      responseText = getRandomFact();
       speakVocalFeedback(responseText);
       addLog('Matrix', responseText);
       return;
@@ -1025,7 +824,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
 
     // --- Uptime & Performance ---
     if (cmd.includes('uptime') || cmd.includes('how long') || cmd.includes('session')) {
-      const uptimeMs = Date.now() - window.__matrixBootTime;
+      const uptimeMs = getCurrentTimestamp() - window.__matrixBootTime;
       const mins = Math.floor(uptimeMs / 60000);
       const secs = Math.floor((uptimeMs % 60000) / 1000);
       responseText = `Current UI session has been active for ${mins} minutes and ${secs} seconds.`;
@@ -1036,13 +835,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
 
     // --- Thank You / Compliment ---
     if (cmd.includes('thank') || cmd.includes('thanks') || cmd.includes('good job') || cmd.includes('well done') || cmd.includes('great')) {
-      const replies = [
-        "You're welcome, Tauhid. Always here to assist.",
-        "Glad I could help. Let me know if there's anything else.",
-        "Thank you for the kind words. Systems are standing by.",
-        "Appreciated. My circuits are warmed by your feedback."
-      ];
-      responseText = replies[Math.floor(Math.random() * replies.length)];
+      responseText = getRandomReply();
       speakVocalFeedback(responseText);
       addLog('Matrix', responseText);
       return;
@@ -1061,15 +854,14 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
 
     // --- Random Number / Dice / Coin Flip ---
     if (cmd.includes('random number') || cmd.includes('roll') || cmd.includes('dice')) {
-      const num = Math.floor(Math.random() * 100) + 1;
-      responseText = `Random number generated: ${num}. Range: 1 to 100.`;
+      responseText = `Random number generated: ${getRandomNumber1to100()}. Range: 1 to 100.`;
       speakVocalFeedback(responseText);
       addLog('Matrix', responseText);
       return;
     }
 
     if (cmd.includes('flip') || cmd.includes('coin') || cmd.includes('heads or tails')) {
-      responseText = Math.random() > 0.5 ? "Coin flip result: Heads." : "Coin flip result: Tails.";
+      responseText = flipCoin();
       speakVocalFeedback(responseText);
       addLog('Matrix', responseText);
       return;
@@ -1077,10 +869,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
 
     // --- Password Generator ---
     if (cmd.includes('password') || cmd.includes('generate password') || cmd.includes('secure key')) {
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&*';
-      let pass = '';
-      for (let i = 0; i < 16; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
-      responseText = `Generated secure password: ${pass}`;
+      responseText = `Generated secure password: ${generateRandomPassword()}`;
       addLog('Matrix', responseText);
       playSynthSound('success');
       setStatus('dormant');
@@ -1089,8 +878,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
 
     // --- Color Palette Generator ---
     if (cmd.includes('color') || cmd.includes('palette') || cmd.includes('hex color')) {
-      const randomHex = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-      const colors = [randomHex(), randomHex(), randomHex(), randomHex(), randomHex()];
+      const colors = generateRandomPalette();
       responseText = `Generated color palette: ${colors.join(', ')}`;
       addLog('Matrix', responseText);
       playSynthSound('success');
@@ -1130,7 +918,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
 
     // --- Morse Code ---
     if (cmd.includes('morse') || cmd.includes('morse code')) {
-      const morseMap = { 'a':'.-','b':'-...','c':'-.-.','d':'-..','e':'.','f':'..-.','g':'--.','h':'....','i':'..','j':'.---','k':'-.-','l':'.-..','m':'--','n':'-.','o':'---','p':'.--.','q':'--.-','r':'.-.','s':'...','t':'-','u':'..-','v':'...-','w':'.--','x':'-..-','y':'-.--','z':'--..','0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....','6':'-....','7':'--...','8':'---..','9':'----.', ' ':'/'};
+      const morseMap = { 'a':'.-','b':'-...','c':'-.-.','d':'-..','e':'.','f':'..-.','g':'--.','h':'....','i':'..','j':'.---','k':'-.-','l':'.-..','m':'--','n':'-.','o':'---','p':'.--.','q':'--.-','r':'.-.','s':'...','t':'-','u':'..-','v':'...-','w':'.--','x':'-..-','y':'-.--','z':'--..','0':'-----','1':'.----','2':'..---','3':'...--','4':'----.','5':'.....','6':'-....','7':'--...','8':'---..','9':'----.', ' ':'/'};
       const input = cmd.replace(/.*(?:morse code|morse)\s*/i, '').trim().toLowerCase();
       if (input) {
         const morse = input.split('').map(c => morseMap[c] || c).join(' ');
@@ -1152,10 +940,10 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
       } else if (cmd.includes('fahrenheit') || cmd.includes('to celsius')) {
         const num = parseFloat(cmd.match(/(\d+\.?\d*)/)?.[1] || '0');
         responseText = `${num}°F = ${((num - 32) * 5/9).toFixed(1)}°C`;
-      } else if (cmd.includes('km') && cmd.includes('mile')) {
+      } else if (cmd.includes('km to') || cmd.includes('km to mile') || cmd.includes('km to miles')) {
         const num = parseFloat(cmd.match(/(\d+\.?\d*)/)?.[1] || '0');
         responseText = `${num} km = ${(num * 0.621371).toFixed(2)} miles`;
-      } else if (cmd.includes('mile') && cmd.includes('km')) {
+      } else if (cmd.includes('mile to') || cmd.includes('miles to') || cmd.includes('mile to km') || cmd.includes('miles to km')) {
         const num = parseFloat(cmd.match(/(\d+\.?\d*)/)?.[1] || '0');
         responseText = `${num} miles = ${(num * 1.60934).toFixed(2)} km`;
       } else {
@@ -1168,17 +956,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
 
     // --- Coding Tips ---
     if (cmd.includes('coding tip') || cmd.includes('programming tip') || cmd.includes('dev tip')) {
-      const tips = [
-        "Always write code as if the next person to maintain it is a violent psychopath who knows where you live.",
-        "Use version control from day one. Even for personal projects, Git saves lives.",
-        "Write tests before fixing bugs. A failing test proves the bug exists and proves when it's fixed.",
-        "Keep functions small and focused. If a function does more than one thing, split it.",
-        "Comment the why, not the what. Good code is self-documenting for the what.",
-        "Learn to read error messages carefully. 90% of debugging is reading.",
-        "Premature optimization is the root of all evil. Make it work, then make it fast.",
-        "Name variables as if you'll read them at 3 AM after being woken up by a production alert."
-      ];
-      responseText = tips[Math.floor(Math.random() * tips.length)];
+      responseText = getRandomTip();
       speakVocalFeedback(responseText);
       addLog('Matrix', responseText);
       return;
@@ -1186,16 +964,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
 
     // --- EEE / Engineering Facts ---
     if (cmd.includes('engineering') || cmd.includes('eee') || cmd.includes('electrical') || cmd.includes('circuit')) {
-      const eeeFacts = [
-        "Ohm's Law (V=IR) is the most fundamental relationship in electrical engineering, relating voltage, current, and resistance.",
-        "A digital twin is a virtual replica of a physical system that uses real-time sensor data to mirror its behavior and predict failures.",
-        "The ESP32 microcontroller has dual-core processing, built-in WiFi and Bluetooth, and costs less than 5 dollars.",
-        "Kirchhoff's Current Law states that the total current entering a junction equals the total current leaving it.",
-        "MQTT is a lightweight messaging protocol designed for IoT devices with limited bandwidth and processing power.",
-        "Power factor correction can reduce electricity waste by aligning voltage and current waveforms in AC systems.",
-        "A PID controller uses Proportional, Integral, and Derivative terms to minimize error in control systems."
-      ];
-      responseText = eeeFacts[Math.floor(Math.random() * eeeFacts.length)];
+      responseText = getRandomEeeFact();
       speakVocalFeedback(responseText);
       addLog('Matrix', responseText);
       return;
@@ -1211,7 +980,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
 
     // Direct local Ollama Query Integration if online
     if (ollamaStatus === 'online' && selectedModel && selectedModel !== LOCAL_AI_MODEL.name) {
-      const startTime = Date.now();
+      const startTime = getCurrentTimestamp();
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 seconds max
@@ -1236,7 +1005,7 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
         
         if (ollamaRes.ok) {
           const data = await ollamaRes.json();
-          const latency = Date.now() - startTime;
+          const latency = getCurrentTimestamp() - startTime;
           setInferenceLatency(latency);
           
           const resultText = data.response.trim();
@@ -1245,141 +1014,438 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
           speakVocalFeedback(resultText);
           return;
         }
-      } catch (e) {
-        console.warn("Ollama query failed:", e);
+      } catch (err) {
+        console.warn("Ollama query failed:", err);
       }
     }
 
     const fallbackText = getLocalSynapseResponse(normalizedText);
-    const latency = Math.floor(Math.random() * 200 + 40);
+    const latency = getRandomLatency();
     
     setInferenceLatency(latency);
     addLog('Matrix (Local)', fallbackText);
     speakVocalFeedback(fallbackText);
-  };
+  }, [
+    schedulerRunning,
+    onNavigateApp,
+    onExecuteCommand,
+    ollamaStatus,
+    selectedModel,
+    systemPrompt,
+    addLog,
+    playSynthSound,
+    speakVocalFeedback,
+    executeSystemDiagnostics,
+    handleSetAlgorithm,
+    handleToggleDaemon,
+    handleResetQueue
+  ]);
 
-  const handleManualSubmit = (e) => {
+  const simulateQuery = useCallback(() => {
+    setStatus('processing');
+    const text = getRandomSimulatedPrompt();
+    addLog('Voice Test', text);
+    setTimeout(() => {
+      processVoiceCommand(text);
+    }, 1000);
+  }, [addLog, processVoiceCommand]);
+
+  const startListening = useCallback(() => {
+    playSynthSound('click');
+    if (!isSupported) {
+      setLastTranscript('Speech API unavailable. Running simulated voice command.');
+      simulateQuery();
+      return;
+    }
+    const rec = recognitionRef.current;
+    if (rec && status === 'dormant') {
+      try {
+        rec.continuous = isHandsFreeRef.current;
+        rec.start();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }, [isSupported, status, simulateQuery, playSynthSound]);
+
+  const handleManualSubmit = useCallback((e) => {
     e.preventDefault();
     if (!manualInput.trim()) return;
     playSynthSound('click');
     const input = manualInput;
     setManualInput('');
     processVoiceCommand(input);
-  };
+  }, [playSynthSound, processVoiceCommand, manualInput]);
 
-  const simulateQuery = () => {
-    setStatus('processing');
-    const prompts = [
-      "Run neofetch stats check",
-      "Scan security sandbox constraints",
-      "Show system telemetry monitor",
-      "Run diagnostics audit",
-      "Tell me a joke",
-      "What time is it",
-      "Who am I",
-      "Give me a motivational quote",
-      "Tell me a fun fact",
-      "What can you do",
-      "My projects",
-      "Give me a coding tip",
-      "Tell me about circuits",
-      "Summarize this OS",
-      "My scholarships and awards",
-      "My certifications",
-      "Flip a coin",
-      "Roll dice"
-    ];
-    const text = prompts[Math.floor(Math.random() * prompts.length)];
-    addLog('Voice Test', text);
-    setTimeout(() => {
-      processVoiceCommand(text);
-    }, 1000);
-  };
+  const toggleHandsFree = useCallback((val) => {
+    setIsHandsFree(val);
+    isHandsFreeRef.current = val;
+    playSynthSound('click');
+    if (val) {
+      addLog('Matrix', 'Hands-free voice routing enabled. Speak a Matrix command.');
+      speakVocalFeedback("Hands-free link active.");
+    } else {
+      addLog('Matrix', 'Hands-Free cognitive link disengaged.');
+      speakVocalFeedback("Hands-free link offline.");
+    }
+  }, [playSynthSound, speakVocalFeedback, addLog]);
 
-  const normalizeVoiceDirective = (rawText) => {
-    const cleaned = rawText.trim();
-    const lower = cleaned.toLowerCase();
-    const wakeWords = ['hey matrix', 'ok matrix', 'matrix'];
-    const matchedWake = wakeWords.find(wake => lower === wake || lower.startsWith(`${wake} `));
-    if (!matchedWake) return cleaned;
-    const stripped = cleaned.slice(matchedWake.length).replace(/^[:,\s]+/, '').trim();
-    if (!stripped) return 'core status';
-    return stripped;
-  };
+  // Sync refs
+  useEffect(() => {
+    startListeningRef.current = startListening;
+    processVoiceCommandRef.current = processVoiceCommand;
+  }, [startListening, processVoiceCommand]);
 
-  const getLocalSynapseResponse = (rawText) => {
-    const text = rawText.toLowerCase();
-    if (text.includes('tauhid') || text.includes('shaik') || text.includes('creator') || text.includes('developer') || text.includes('who am i') || text.includes('owner') || text.includes('myself')) {
-      return 'You are Shaik Tauhidur Rahman, an EEE honors student at AIUB. Executive of AIUB R&D Club, Campus Ambassador for EWU Robofest 2026. Dean\'s List honoree, Merit & Academic Scholar. You specialize in Cyber-Physical Systems, Digital Twins, Embedded Systems, and Edge AI. Portfolio: strtauhid.app.';
+  // Generate sphere coordinates once
+  useEffect(() => {
+    const points = [];
+    const goldenRatio = (1 + Math.sqrt(5)) / 2;
+    const angleIncrement = 2 * Math.PI * goldenRatio;
+    for (let i = 0; i < N; i++) {
+      const t = i / N;
+      const inclination = Math.acos(1 - 2 * t);
+      const azimuth = angleIncrement * i;
+      const x = Math.sin(inclination) * Math.cos(azimuth);
+      const y = Math.sin(inclination) * Math.sin(azimuth);
+      const z = Math.cos(inclination);
+      points.push({ x, y, z });
     }
-    if (text.includes('project') || text.includes('portfolio') || text.includes('work')) {
-      return 'Your projects: 1) DC Motor Digital Twin (ESP32 + ACS712 + MQTT + state-space estimation), 2) Wind Turbine Simulator (anemometer + QBlade Cp curves), 3) Home Power Distribution Board (MCB + KCL validation). All on strtauhid.app.';
+    spherePointsRef.current = points;
+  }, []);
+
+  // Poll database status to sync scheduler UI from SQLite backend
+  useEffect(() => {
+    let isMounted = true;
+    
+    const syncSchedulerData = async () => {
+      try {
+        const res = await fetch('/api/scheduler/status');
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          setSchedulerTasks(data.tasks || []);
+          setSchedulerAlgo(data.algorithm ? data.algorithm.toLowerCase() : 'priority');
+          setSchedulerRunning(data.isRunning);
+          
+          if (data.metrics) {
+            setCacheHits(data.metrics.hits || 0);
+            setCacheMisses(data.metrics.misses || 0);
+          }
+          setLruCacheList(data.cache_states || []);
+          
+          // Find running task
+          const running = (data.tasks || []).find(t => t.status === 'running');
+          setActiveTask(running || null);
+        }
+      } catch {
+        console.warn("Scheduler API not reachable (dev server offline).");
+      }
+    };
+
+    const fetchDaemonLogs = async () => {
+      try {
+        const res = await fetch('/api/scheduler/logs');
+        if (res.ok && isMounted) {
+          const text = await res.text();
+          setDaemonLogs(text);
+        }
+      } catch {
+        // Ignored
+      }
+    };
+
+    syncSchedulerData();
+    fetchDaemonLogs();
+    
+    const statusInterval = setInterval(syncSchedulerData, 3000);
+    const logsInterval = setInterval(fetchDaemonLogs, 3000);
+    
+    return () => {
+      isMounted = false;
+      clearInterval(statusInterval);
+      clearInterval(logsInterval);
+    };
+  }, []);
+
+  // Cleanup mic resources on unmount
+  useEffect(() => {
+    return () => stopMicAnalysis();
+  }, [stopMicAnalysis]);
+
+  // Discover Ollama models and query tags
+  useEffect(() => {
+    const checkOllama = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1200); // 1.2s timeout
+        
+        const response = await fetch('http://localhost:11434/api/tags', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.models && data.models.length > 0) {
+            setModels(data.models);
+            setSelectedModel(data.models[0].name);
+            setOllamaStatus('online');
+            addLog('System', `Ollama core detected. Connected to local runtime: ${data.models[0].name}`);
+          } else {
+            setModels([LOCAL_AI_MODEL, ...POWER_AI_MODELS]);
+            setSelectedModel('qwen3:8b');
+            setOllamaStatus('local');
+            addLog('System', 'Ollama is online but no model weights were found. Using Matrix local synapse with Qwen3 orchestration profile.');
+          }
+        }
+      } catch {
+        setModels([LOCAL_AI_MODEL, ...POWER_AI_MODELS]);
+        setSelectedModel('qwen3:8b');
+        setOllamaStatus('local');
+        addLog('System', 'Local Ollama node not detected. Matrix local synapse is active offline with Qwen3 8B as the target power model.');
+      }
+    };
+    checkOllama();
+  }, [addLog]);
+
+  // Initialize Speech Synthesis Voices
+  useEffect(() => {
+    if (!window.speechSynthesis) return;
+    const loadVoices = () => {
+      const allVoices = window.speechSynthesis.getVoices();
+      setVoices(allVoices);
+      const defaultVoice = allVoices.find(v => v.name.toLowerCase().includes('zira')) || 
+                           allVoices.find(v => v.lang.includes('en-GB') && v.name.toLowerCase().includes('google')) || 
+                           allVoices.find(v => v.lang.includes('en-GB')) ||
+                           allVoices.find(v => v.lang.includes('en-US')) || 
+                           allVoices[0];
+      if (defaultVoice) {
+        setSelectedVoice(defaultVoice.name);
+      }
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
+
+  // Initialize Web Speech API Recognition
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      return;
     }
-    if (text.includes('publications') || text.includes('research') || text.includes('paper')) {
-      return 'Your publication: "A Digital Twin Approach for Smart Monitoring of DC Motors with Real-Time Fault Analysis and Power Evaluation" — IEEE format, first author, submitted to WiDS NSU Conference 2026. DOI: 10.13140/RG.2.2.34869.13282/1.';
-    }
-    if (text.includes('education') || text.includes('university') || text.includes('degree') || text.includes('aiub')) {
-      return 'BSc EEE at AIUB (2024-2027), majoring in Electronics & Intelligence Systems. Previously at Rajshahi College, Rajshahi Govt City College (HSC), and Rajshahi Cantonment Board School (SSC).';
-    }
-    if (text.includes('scholarship') || text.includes('award') || text.includes('honor') || text.includes('dean')) {
-      return 'Dean\'s List (AIUB Spring 2024-25), Merit Scholarship (AIUB Fall 2024-25), Academic Scholarship (AIUB Fall 2024-25), Rajshahi Zilla Parishad Scholarship (HSC Merit 2023).';
-    }
-    if (text.includes('skill') || text.includes('tech stack') || text.includes('competenc')) {
-      return 'Skills: ESP32/STM32, PCB Design, C/C++, Python, MATLAB/Simulink, COMSOL, QBlade, AutoCAD, MQTT, ThingSpeak, Git, LaTeX, PID Control, Rust basics.';
-    }
-    if (text.includes('contact') || text.includes('email') || text.includes('linkedin') || text.includes('github')) {
-      return 'Contact: strtauhid200307@gmail.com | GitHub: Tauhid2003 | LinkedIn: shaik-tauhidur-rahman | Portfolio: strtauhid.app';
-    }
-    if (text.includes('certification') || text.includes('training') || text.includes('british council') || text.includes('ieee')) {
-      return 'Certifications: Additive Manufacturing & Digital Twins (Birmingham/British Council 2025), Industry 4.0 to 5.0 (British Council 2025), IEEE Authorship Symposium (Sep 2025), QBlade & Research Writing (AIUB R&D 2025).';
-    }
-    if (text.includes('ambition') || text.includes('goal') || text.includes('future') || text.includes('dream')) {
-      return 'Ambition: MS/PhD in Robotics & Intelligent Control Systems. Mission: solving industrial automation & smart grid challenges through cyber-physical modeling and self-diagnostic controls.';
-    }
-    if (text.includes('club') || text.includes('r&d') || text.includes('leadership') || text.includes('robofest')) {
-      return 'Leadership: Executive at AIUB R&D Club (May 2026-present), Researcher at AIUB R&D Club (Jul 2025-May 2026), Campus Ambassador for EWU National Robofest 2026.';
-    }
-    if (text.includes('website') || text.includes('strtauhid')) {
-      return 'Your portfolio at strtauhid.app features a live DC Motor Digital Twin simulator, interactive shell, education history, skills matrix, projects, publications, and engineering notes.';
-    }
-    if (text.includes('architecture') || text.includes('module')) {
-      return 'Offline architecture core is active: scheduler, filesystem, process manager, service manager, UI shell, and ISO builder are separated into testable modules.';
-    }
-    if (text.includes('model') || text.includes('ai')) {
-      return 'AI control layer upgraded. Default target model is qwen3:8b, with optional qwen3:30b and qwen3-coder:30b profiles for stronger local machines.';
-    }
-    if (text.includes('core') || text.includes('status')) {
-      return 'CORE-001 is available offline. The AI orchestrator can plan local actions, query core status, route apps, and protect risky build or package operations with confirmation gates.';
-    }
-    if (text.includes('help') || text.includes('what can you do') || text.includes('capabilities') || text.includes('features')) {
-      return 'I can: open apps, run diagnostics, control the scheduler, tell jokes, give motivational quotes, share fun facts, do math, convert units, generate passwords and color palettes, set timers, encode morse code, count words, flip coins, roll dice, give coding tips, share EEE engineering knowledge, tell the time and date, summarize this OS, and answer questions about you and your projects.';
-    }
-    if (text.includes('offline') || text.includes('internet')) {
-      return 'Runtime internet dependency is disabled for core behavior. I am answering through the Matrix local synapse profile.';
-    }
-    if (text.includes('joke') || text.includes('funny')) {
-      const jokes = ['Why do programmers prefer dark mode? Because light attracts bugs.', 'There are only 10 types of people: those who understand binary and those who don\'t.', 'A SQL query walks into a bar, sees two tables, and asks: Can I JOIN you?'];
-      return jokes[Math.floor(Math.random() * jokes.length)];
-    }
-    if (text.includes('time') || text.includes('clock') || text.includes('date') || text.includes('today')) {
-      return `Current local time: ${new Date().toLocaleString()}`;
-    }
-    if (text.includes('motivat') || text.includes('quote') || text.includes('inspire')) {
-      const quotes = ['The best way to predict the future is to invent it. — Alan Kay', 'Engineering is the closest thing to magic that exists in the world. — Elon Musk', 'Innovation distinguishes between a leader and a follower. — Steve Jobs'];
-      return quotes[Math.floor(Math.random() * quotes.length)];
-    }
-    if (text.includes('fact') || text.includes('trivia') || text.includes('did you know')) {
-      const facts = ['The first computer programmer was Ada Lovelace in 1843.', 'An ESP32 can perform 600 million instructions per second.', 'Digital twins can reduce product development costs by up to 50%.'];
-      return facts[Math.floor(Math.random() * facts.length)];
-    }
-    if (text.includes('thank') || text.includes('thanks') || text.includes('good job')) {
-      return 'You are welcome, Tauhid. Always here to assist.';
-    }
-    if (text.includes('hello') || text.includes('hi') || text.includes('hey')) {
-      return 'Hello, Shaik Tauhidur Rahman. Local AI command routing is active. Central systems are standing by.';
-    }
-    return `Matrix local synapse processed your query: "${rawText}". I didn't find a specific system route, but you can try asking me for help, jokes, facts, quotes, time, math, or say a command like open terminal, run diagnostics, or show telemetry.`;
-  };
+
+    const rec = new SpeechRecognition();
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.lang = 'en-US';
+
+    rec.onstart = () => {
+      setStatus('listening');
+      setVoiceWakeArmed(true);
+      playSynthSound('listening');
+      addLog('Matrix', 'Acoustic ingress open. Say: "Matrix" followed by a command.');
+      startMicAnalysis();
+    };
+
+    rec.onerror = (err) => {
+      console.error(err);
+      setStatus('dormant');
+      setVoiceWakeArmed(false);
+      playSynthSound('error');
+      addLog('Matrix', 'Acoustic link blocked or timed out.');
+      stopMicAnalysis();
+    };
+
+    rec.onend = () => {
+      setStatus(prev => (prev === 'listening' ? 'dormant' : prev));
+      setVoiceWakeArmed(false);
+      stopMicAnalysis();
+    };
+
+    rec.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setLastTranscript(transcript);
+      if (processVoiceCommandRef.current) {
+        processVoiceCommandRef.current(transcript);
+      }
+    };
+
+    recognitionRef.current = rec;
+  }, [isSupported, addLog, playSynthSound, startMicAnalysis, stopMicAnalysis]);
+
+  // JARVIS-Style 3D Holographic Canvas Particle Core Animation Loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let animationFrameId;
+    let rotX = 0.5;
+    let rotY = 0.5;
+    let rotZ = 0.2;
+    let angle = 0;
+
+    // Handle high DPI screens
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = 190 * dpr;
+    canvas.height = 190 * dpr;
+    ctx.scale(dpr, dpr);
+
+    const draw = () => {
+      if (!ctx || !canvas) return;
+      
+      const width = canvas.width / dpr;
+      const height = canvas.height / dpr;
+      const cX = width / 2;
+      const cY = height / 2;
+      
+      ctx.clearRect(0, 0, width, height);
+
+      // Sphere theme colors
+      let pColor = 'rgba(0, 255, 255, '; // Cyan
+      let ringColor = 'rgba(0, 255, 255, 0.15)';
+      let activeColor = 'var(--accent-cyan)';
+      
+      if (status === 'listening') {
+        pColor = 'rgba(233, 84, 32, '; // Orange
+        ringColor = 'rgba(233, 84, 32, 0.15)';
+        activeColor = 'var(--ubuntu-orange)';
+      } else if (status === 'processing') {
+        pColor = 'rgba(167, 139, 250, '; // Violet
+        ringColor = 'rgba(167, 139, 250, 0.15)';
+        activeColor = 'var(--accent-violet)';
+      } else if (status === 'speaking') {
+        pColor = 'rgba(0, 255, 255, '; // Cyan
+        ringColor = 'rgba(0, 255, 255, 0.22)';
+        activeColor = 'var(--accent-cyan)';
+      }
+
+      // Rotate sphere angles
+      let speedFactor = 1.0;
+      if (status === 'listening') speedFactor = 1.6;
+      else if (status === 'processing') speedFactor = 3.6;
+      else if (status === 'speaking') speedFactor = 2.0;
+
+      rotY += 0.006 * speedFactor;
+      rotX += 0.004 * speedFactor;
+      rotZ += 0.002 * speedFactor;
+
+      // Base radius of the sphere
+      const amp = micVolumeRef.current / 255;
+      const breath = Math.sin(getCurrentTimestamp() / 150) * 0.08;
+      const scale = 1.0 + amp * 0.7 + (status === 'speaking' ? breath : 0);
+      const baseRadius = 55 * scale;
+
+      const finalCX = cX;
+      const finalCY = cY;
+
+      // Draw horizontal orbital rings (perspective ellipses)
+      const rings = [
+        { hOffset: -0.35, rMul: 1.25, rotSpeed: 0.015 },
+        { hOffset: 0.0, rMul: 1.45, rotSpeed: -0.02 },
+        { hOffset: 0.35, rMul: 1.25, rotSpeed: 0.01 }
+      ];
+
+      ctx.lineWidth = 1;
+      rings.forEach((ring) => {
+        ctx.strokeStyle = ringColor;
+        ctx.beginPath();
+        
+        const ringAngleOffset = angle * ring.rotSpeed;
+        const ptsCount = 45;
+        for (let j = 0; j <= ptsCount; j++) {
+          const a = (j / ptsCount) * Math.PI * 2 + ringAngleOffset;
+          const rx0 = Math.cos(a) * ring.rMul;
+          const rz0 = Math.sin(a) * ring.rMul;
+          const ry0 = ring.hOffset;
+
+          // 3D Rotations
+          let ry1 = ry0 * Math.cos(rotX) - rz0 * Math.sin(rotX);
+          let rz1 = ry0 * Math.sin(rotX) + rz0 * Math.cos(rotX);
+          let rx1 = rx0 * Math.cos(rotY) - rz1 * Math.sin(rotY);
+          let rz2 = rx0 * Math.sin(rotY) + rz1 * Math.cos(rotY);
+
+          // Perspective scaling
+          const rpf = 1.8 / (2.5 - rz2);
+          const rpx = finalCX + rx1 * baseRadius * rpf;
+          const rpy = finalCY + ry1 * baseRadius * rpf;
+
+          if (j === 0) {
+            ctx.moveTo(rpx, rpy);
+          } else {
+            ctx.lineTo(rpx, rpy);
+          }
+        }
+        ctx.stroke();
+      });
+
+      // Project and draw particles
+      if (spherePointsRef.current.length > 0) {
+        const rotatedPoints = spherePointsRef.current.map(p => {
+          // Rotate X
+          let y1 = p.y * Math.cos(rotX) - p.z * Math.sin(rotX);
+          let z1 = p.y * Math.sin(rotX) + p.z * Math.cos(rotX);
+          // Rotate Y
+          let x1 = p.x * Math.cos(rotY) - z1 * Math.sin(rotY);
+          let z2 = p.x * Math.sin(rotY) + z1 * Math.cos(rotY);
+          // Rotate Z
+          let x2 = x1 * Math.cos(rotZ) - y1 * Math.sin(rotZ);
+          let y2 = x1 * Math.sin(rotZ) + y1 * Math.cos(rotZ);
+
+          return { x: x2, y: y2, z: z2 };
+        });
+
+        // Painter's algorithm sorting
+        rotatedPoints.sort((a, b) => a.z - b.z);
+
+        rotatedPoints.forEach(p => {
+          const pf = 1.8 / (2.5 - p.z);
+          const px = finalCX + p.x * baseRadius * pf;
+          const py = finalCY + p.y * baseRadius * pf;
+          const size = (p.z + 1) * 1.5 + 0.4;
+          const alpha = ((p.z + 1) / 2) * 0.75 + 0.25;
+
+          ctx.fillStyle = pColor + alpha + ')';
+          ctx.beginPath();
+          ctx.arc(px, py, size, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      // Center core glowing circle
+      ctx.fillStyle = activeColor;
+      ctx.beginPath();
+      ctx.arc(finalCX, finalCY, 6 + (amp * 5), 0, Math.PI * 2);
+      ctx.fill();
+
+      angle += 0.05;
+      animationFrameId = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [status]);
+
+  // System temperature fluctuations
+  useEffect(() => {
+    const tInterval = setInterval(() => {
+      setDiagTemp(prev => {
+        const change = parseFloat((prev + (Math.random() * 0.4 - 0.2)).toFixed(1));
+        return Math.max(38, Math.min(55, change));
+      });
+    }, 4000);
+    return () => clearInterval(tInterval);
+  }, []);
+
+  useEffect(() => {
+    const handleTriggerDiag = () => {
+      executeSystemDiagnostics();
+    };
+    window.addEventListener('matrix-trigger-diag', handleTriggerDiag);
+    return () => window.removeEventListener('matrix-trigger-diag', handleTriggerDiag);
+  }, [executeSystemDiagnostics]);
 
   return (
     <div style={{ 

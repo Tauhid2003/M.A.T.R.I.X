@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function SystemDaemonTab() {
   const [selectedModel, setSelectedModel] = useState('qwen-3b');
@@ -62,7 +62,7 @@ export default function SystemDaemonTab() {
             }
           }
         }
-      } catch (e) {
+      } catch {
         console.warn('System Monitor daemon is offline. Using simulated system diagnostics.');
         setIsApiMode(false);
       }
