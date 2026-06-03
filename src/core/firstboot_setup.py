@@ -23,8 +23,9 @@ SENTINEL_PATH = "/var/lib/matrix/.firstboot_done"
 
 # Cross-platform fallback paths for local testing
 if platform.system() == "Windows":
-    DB_PATH = os.path.join(os.getcwd(), "scheduler.db")
-    SENTINEL_PATH = os.path.join(os.getcwd(), ".firstboot_done")
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    DB_PATH = os.path.join(project_root, "scheduler.db")
+    SENTINEL_PATH = os.path.join(project_root, ".firstboot_done")
 
 def init_database_defaults(profile):
     """Saves the auto-detected optimal model parameters into the scheduler DB."""

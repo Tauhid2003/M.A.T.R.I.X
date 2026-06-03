@@ -18,11 +18,13 @@ PORT = 8000
 DB_PATH = "/var/lib/matrix/scheduler.db"
 
 if platform.system() == "Windows":
-    DB_PATH = os.path.join(os.getcwd(), "scheduler.db")
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    DB_PATH = os.path.join(project_root, "scheduler.db")
 
 # In-memory queue for commands pending user approval (CORE-004 Permission System)
 PENDING_ACTIONS = {}
 RESOLVED_ACTIONS = {}
+SCHEDULER_PROCESS = None
 
 # Safe commands that can run without user confirmation
 SAFE_PREFIXES = ["ls", "pwd", "whoami", "git status", "git log", "python", "python3", "cat", "echo", "type", "dir"]
@@ -59,6 +61,12 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
             self.handle_get_pending_status(parsed_url.query)
         elif path == "/api/files":
             self.handle_get_files(parsed_url.query)
+        elif path == "/api/scheduler/status":
+            self.handle_get_scheduler_status()
+        elif path == "/api/scheduler/logs":
+            self.handle_get_scheduler_logs()
+        elif path == "/api/launch-firefox":
+            self.handle_launch_firefox()
         else:
             self.send_json({"error": "Endpoint not found"}, 404)
 
@@ -82,6 +90,18 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
             self.handle_post_pending_resolve(payload)
         elif path == "/api/files/read":
             self.handle_post_files_read(payload)
+        elif path == "/api/scheduler/add-task":
+            self.handle_post_scheduler_add_task(payload)
+        elif path == "/api/scheduler/set-algorithm":
+            self.handle_post_scheduler_set_algorithm(payload)
+        elif path == "/api/scheduler/reset":
+            self.handle_post_scheduler_reset()
+        elif path == "/api/scheduler/start-daemon":
+            self.handle_post_scheduler_start_daemon()
+        elif path == "/api/scheduler/stop-daemon":
+            self.handle_post_scheduler_stop_daemon()
+        elif path == "/api/launch-firefox":
+            self.handle_launch_firefox()
         else:
             self.send_json({"error": "Endpoint not found"}, 404)
 
@@ -212,6 +232,106 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
             })
         except Exception as e:
             self.send_json({"error": str(e)}, 500)
+
+    def handle_get_scheduler_status(self):
+        is_running = is_scheduler_running()
+        
+        # Read DB configurations using sqlite
+        tasks = []
+        algo = "Priority"
+        metrics = {"hits": 0, "misses": 0}
+        cache_states = []
+        
+        if os.path.exists(DB_PATH):
+            try:
+                conn = sqlite3.connect(DB_PATH)
+                cursor = conn.cursor()
+                
+                # Tasks
+                cursor.execute("SELECT id, agent_id, task_name, duration, remaining_time, task_complexity, urgency, resource_requirements, user_priority, priority, status, attention_history FROM tasks")
+                for r in cursor.fetchall():
+                    tasks.append({
+                        'id': r[0], 'agent_id': r[1], 'task_name': r[2], 'duration': r[3], 'remaining_time': r[4],
+                        'task_complexity': r[5], 'urgency': r[6], 'resource_requirements': r[7], 'user_priority': r[8],
+                        'priority': r[9], 'status': r[10], 'attention_history': json.loads(r[11]) if r[11] else []
+                    })
+                    
+                # Algorithm
+                cursor.execute("SELECT value FROM system_config WHERE key = 'algorithm'")
+                row = cursor.fetchone()
+                if row:
+                    algo = row[0]
+                    
+                # Metrics
+                cursor.execute("SELECT key, value FROM cache_metrics")
+                metrics = {k: v for k, v in cursor.fetchall()}
+                
+                # Cache state
+                cursor.execute("SELECT agent_id FROM cache_state")
+                cache_states = [r[0] for r in cursor.fetchall()]
+                
+                conn.close()
+            except Exception:
+                pass
+                
+        self.send_json({
+            'isRunning': is_running,
+            'tasks': tasks,
+            'algorithm': algo,
+            'metrics': metrics,
+            'cache_states': cache_states
+        })
+
+    def handle_get_scheduler_logs(self):
+        log_file = "scheduler.log"
+        if platform.system() != "Windows":
+            log_file = "/var/log/matrix_scheduler.log"
+        
+        # Check subdirectories
+        if not os.path.exists(log_file):
+            log_file = os.path.join(os.getcwd(), "src", "scheduler", "scheduler.log")
+        if not os.path.exists(log_file):
+            log_file = os.path.join(os.getcwd(), "scheduler.log")
+            
+        if os.path.exists(log_file):
+            try:
+                with open(log_file, "r", encoding="utf-8", errors="replace") as f:
+                    lines = f.readlines()
+                last_lines = "".join(lines[-40:])
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self._set_cors_headers()
+                self.end_headers()
+                self.wfile.write(last_lines.encode("utf-8"))
+            except Exception as e:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self._set_cors_headers()
+                self.end_headers()
+                self.wfile.write(f"[Daemon Error] Could not read logs: {e}".encode("utf-8"))
+        else:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self._set_cors_headers()
+            self.end_headers()
+            self.wfile.write("[Ingress System] No active log streams detected.".encode("utf-8"))
+
+    def handle_launch_firefox(self):
+        try:
+            if platform.system() == "Windows":
+                subprocess.Popen("start firefox", shell=True)
+            else:
+                subprocess.Popen(["firefox"])
+            self.send_json({"status": "success"})
+        except Exception:
+            try:
+                if platform.system() == "Windows":
+                    subprocess.Popen("firefox", shell=True)
+                else:
+                    subprocess.Popen("firefox")
+                self.send_json({"status": "success"})
+            except Exception as e2:
+                self.send_json({"status": "error", "message": str(e2)}, 500)
 
     # --- POST Handlers ---
 
@@ -349,6 +469,200 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
         
         RESOLVED_ACTIONS[action_id] = result
         self.send_json(result)
+
+    def handle_post_scheduler_set_algorithm(self, payload):
+        algorithm = payload.get("algorithm", "").strip()
+        valid_algos = ['fifo', 'rr', 'sjf', 'priority', 'FIFO', 'RR', 'SJF', 'Priority']
+        if algorithm not in valid_algos:
+            self.send_json({"error": "Invalid algorithm. Must be FIFO, RR, SJF, or Priority"}, 400)
+            return
+            
+        safe_algo = "".join(c for c in algorithm if c.isalpha())
+        
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("UPDATE system_config SET value = ? WHERE key = 'algorithm'", (safe_algo,))
+            conn.commit()
+            conn.close()
+            self.send_json({"status": "success"})
+        except Exception as e:
+            self.send_json({"error": str(e)}, 500)
+
+    def handle_post_scheduler_reset(self):
+        try:
+            if os.path.exists(DB_PATH):
+                try:
+                    os.remove(DB_PATH)
+                except Exception:
+                    pass
+                    
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS system_config (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    agent_id TEXT,
+                    task_name TEXT,
+                    duration REAL,
+                    remaining_time REAL,
+                    task_complexity REAL,
+                    urgency REAL,
+                    resource_requirements REAL,
+                    user_priority REAL,
+                    priority REAL,
+                    status TEXT,
+                    attention_history TEXT
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS cache_state (
+                    agent_id TEXT PRIMARY KEY,
+                    attention_history TEXT
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS cache_metrics (
+                    key TEXT PRIMARY KEY,
+                    value INTEGER
+                )
+            """)
+            cursor.execute("INSERT OR IGNORE INTO system_config (key, value) VALUES ('algorithm', 'Priority')")
+            cursor.execute("INSERT OR IGNORE INTO cache_metrics (key, value) VALUES ('hits', 0)")
+            cursor.execute("INSERT OR IGNORE INTO cache_metrics (key, value) VALUES ('misses', 0)")
+            
+            # Prepopulate tasks
+            cursor.execute("""
+                INSERT INTO tasks (agent_id, task_name, duration, remaining_time, task_complexity, urgency, resource_requirements, user_priority, priority, status, attention_history)
+                VALUES ('Security Auditor', 'Vulnerability Scan', 2.0, 2.0, 8.0, 9.0, 5.0, 7.0, 7.3, 'pending', '[]')
+            """)
+            cursor.execute("""
+                INSERT INTO tasks (agent_id, task_name, duration, remaining_time, task_complexity, urgency, resource_requirements, user_priority, priority, status, attention_history)
+                VALUES ('Wine Translator', 'Translate win32 API', 1.0, 1.0, 4.0, 3.0, 3.0, 5.0, 4.1, 'pending', '[]')
+            """)
+            cursor.execute("""
+                INSERT INTO tasks (agent_id, task_name, duration, remaining_time, task_complexity, urgency, resource_requirements, user_priority, priority, status, attention_history)
+                VALUES ('Filesystem Stripper', 'Purge temp caches', 1.5, 1.5, 5.0, 6.0, 8.0, 4.0, 5.4, 'pending', '[]')
+            """)
+            cursor.execute("""
+                INSERT INTO tasks (agent_id, task_name, duration, remaining_time, task_complexity, urgency, resource_requirements, user_priority, priority, status, attention_history)
+                VALUES ('Network Guard', 'Inspect traffic', 2.5, 2.5, 7.0, 8.0, 6.0, 9.0, 8.5, 'pending', '[]')
+            """)
+            conn.commit()
+            conn.close()
+            self.send_json({"status": "success"})
+        except Exception as e:
+            self.send_json({"error": str(e)}, 500)
+
+    def handle_post_scheduler_add_task(self, payload):
+        try:
+            agent_id = payload.get("agent_id")
+            task_name = payload.get("task_name")
+            duration = float(payload.get("duration", 0))
+            task_complexity = float(payload.get("task_complexity", 0))
+            urgency = float(payload.get("urgency", 0))
+            resource_requirements = float(payload.get("resource_requirements", 0))
+            user_priority = float(payload.get("user_priority", 0))
+            
+            safe_agent_id = "".join(c for c in str(agent_id) if c.isalnum() or c in " _-")[:64]
+            safe_task_name = "".join(c for c in str(task_name) if c.isalnum() or c in " _-")[:64]
+            
+            priority = round((task_complexity * 0.2) + (urgency * 0.4) + (resource_requirements * 0.1) + (user_priority * 0.3), 2)
+            
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO tasks (agent_id, task_name, duration, remaining_time, task_complexity, urgency, resource_requirements, user_priority, priority, status, attention_history)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', '[]')
+            """, (safe_agent_id, safe_task_name, duration, duration, task_complexity, urgency, resource_requirements, user_priority, priority))
+            conn.commit()
+            conn.close()
+            self.send_json({"status": "success"})
+        except Exception as e:
+            self.send_json({"error": str(e)}, 500)
+
+    def handle_post_scheduler_start_daemon(self):
+        global SCHEDULER_PROCESS
+        if is_scheduler_running():
+            self.send_json({"status": "success", "isRunning": True})
+            return
+            
+        script_path = get_scheduler_daemon_path()
+        try:
+            cwd = os.path.dirname(script_path) or os.getcwd()
+            if not os.path.exists(script_path):
+                self.send_json({"error": f"Scheduler daemon script not found at {script_path}"}, 404)
+                return
+                
+            SCHEDULER_PROCESS = subprocess.Popen(
+                [sys.executable, "-u", script_path],
+                cwd=cwd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            self.send_json({"status": "success", "isRunning": True})
+        except Exception as e:
+            self.send_json({"error": f"Failed to start scheduler process: {str(e)}"}, 500)
+
+    def handle_post_scheduler_stop_daemon(self):
+        global SCHEDULER_PROCESS
+        if SCHEDULER_PROCESS:
+            try:
+                SCHEDULER_PROCESS.terminate()
+                SCHEDULER_PROCESS.wait(timeout=3)
+            except Exception:
+                try:
+                    SCHEDULER_PROCESS.kill()
+                except Exception:
+                    pass
+            SCHEDULER_PROCESS = None
+            
+        # Hard kill any orphaned daemon instances
+        try:
+            if platform.system() == "Windows":
+                subprocess.run("wmic process where \"CommandLine like '%scheduler_daemon.py%'\" call terminate", shell=True, capture_output=True)
+            else:
+                subprocess.run(["pkill", "-f", "scheduler_daemon.py"], capture_output=True)
+        except Exception:
+            pass
+            
+        self.send_json({"status": "success", "isRunning": False})
+
+def get_scheduler_daemon_path():
+    if os.path.exists("src/scheduler/scheduler_daemon.py"):
+        return os.path.abspath("src/scheduler/scheduler_daemon.py")
+    parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(parent_dir, "scheduler", "scheduler_daemon.py")
+    if os.path.exists(path):
+        return path
+    path2 = os.path.join(os.path.dirname(__file__), "scheduler_daemon.py")
+    if os.path.exists(path2):
+        return path2
+    return "scheduler_daemon.py"
+
+def is_scheduler_running():
+    global SCHEDULER_PROCESS
+    if SCHEDULER_PROCESS and SCHEDULER_PROCESS.poll() is None:
+        return True
+        
+    try:
+        if platform.system() == "Windows":
+            res = subprocess.run("tasklist /FI \"IMAGENAME eq python.exe\" /FO CSV /NH /V", shell=True, capture_output=True, text=True, errors="replace")
+            if "scheduler_daemon.py" in res.stdout:
+                return True
+        else:
+            res = subprocess.run(["pgrep", "-f", "scheduler_daemon.py"], capture_output=True)
+            if res.returncode == 0:
+                return True
+    except Exception:
+        pass
+    return False
 
 def execute_shell_command(command):
     """Executes a system shell command securely with cross-platform translations."""

@@ -135,7 +135,7 @@ function App() {
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/status');
+        const res = await fetch('/api/status');
         if (res.ok) {
           const data = await res.json();
           setApiOnline(true);
@@ -159,7 +159,7 @@ function App() {
     if (!setupCompleted && apiOnline) {
       const getHardware = async () => {
         try {
-          const res = await fetch('http://localhost:8000/api/hardware');
+          const res = await fetch('/api/hardware');
           if (res.ok) {
             const data = await res.json();
             setHardwareProfile(data);
@@ -177,7 +177,7 @@ function App() {
     if (!setupCompleted || !apiOnline) return;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/pending');
+        const res = await fetch('/api/pending');
         if (res.ok) {
           const data = await res.json();
           if (data.length > 0) {
@@ -518,7 +518,7 @@ function App() {
           <button 
             onClick={async () => {
               try {
-                await fetch('http://localhost:8000/api/config', {
+                await fetch('/api/config', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -1394,7 +1394,7 @@ function App() {
               <button 
                 onClick={async () => {
                   try {
-                    await fetch('http://localhost:8000/api/pending/resolve', {
+                    await fetch('/api/pending/resolve', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ action_id: pendingAction.action_id, decision: 'reject' })
@@ -1413,7 +1413,7 @@ function App() {
               <button 
                 onClick={async () => {
                   try {
-                    await fetch('http://localhost:8000/api/pending/resolve', {
+                    await fetch('/api/pending/resolve', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ action_id: pendingAction.action_id, decision: 'approve' })

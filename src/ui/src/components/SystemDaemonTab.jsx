@@ -29,8 +29,8 @@ export default function SystemDaemonTab() {
   useEffect(() => {
     const fetchSystemTelemetry = async () => {
       try {
-        const hwRes = await fetch('http://localhost:8000/api/hardware');
-        const statusRes = await fetch('http://localhost:8000/api/status');
+        const hwRes = await fetch('/api/hardware');
+        const statusRes = await fetch('/api/status');
         
         if (hwRes.ok) {
           const hw = await hwRes.json();

@@ -62,7 +62,7 @@ export default function TerminalTab({ initialCommand, onClearInitialCommand }) {
     setHistory(prev => [...prev, { type: 'user', text: `$ ${commandText}` }]);
     
     try {
-      const res = await fetch('http://localhost:8000/api/terminal', {
+      const res = await fetch('/api/terminal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: commandText })
@@ -91,7 +91,7 @@ export default function TerminalTab({ initialCommand, onClearInitialCommand }) {
         
         const interval = setInterval(async () => {
           try {
-            const statusRes = await fetch(`http://localhost:8000/api/pending/status?action_id=${data.action_id}`);
+            const statusRes = await fetch(`/api/pending/status?action_id=${data.action_id}`);
             if (statusRes.ok) {
               const statusData = await statusRes.json();
               if (statusData.status === 'completed') {

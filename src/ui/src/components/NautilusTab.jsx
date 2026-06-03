@@ -58,7 +58,7 @@ export default function NautilusTab({ onOpenFile }) {
   // Load directory list
   const loadDirectory = async (pathTarget) => {
     try {
-      const url = `http://localhost:8000/api/files?path=${encodeURIComponent(pathTarget)}`;
+      const url = `/api/files?path=${encodeURIComponent(pathTarget)}`;
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -104,7 +104,7 @@ export default function NautilusTab({ onOpenFile }) {
   const handleFileClick = async (item) => {
     if (isApiMode) {
       try {
-        const res = await fetch('http://localhost:8000/api/files/read', {
+        const res = await fetch('/api/files/read', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ path: item.path, mime: item.mime })

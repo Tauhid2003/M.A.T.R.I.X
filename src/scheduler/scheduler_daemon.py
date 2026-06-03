@@ -23,11 +23,12 @@ if hasattr(sys.stderr, 'reconfigure'):
 DB_PATH = "/var/lib/matrix/scheduler.db"
 LOG_PATH = "/var/log/matrix_scheduler.log"
 
-# If path is not writable (e.g. on Windows development host), fall back to current directory
+# If path is not writable (e.g. on Windows development host), fall back to project root
 db_dir = os.path.dirname(DB_PATH)
 if not os.path.exists(db_dir) or not os.access(db_dir, os.W_OK):
-    DB_PATH = os.path.join(os.getcwd(), "scheduler.db")
-    LOG_PATH = os.path.join(os.getcwd(), "scheduler.log")
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    DB_PATH = os.path.join(project_root, "scheduler.db")
+    LOG_PATH = os.path.join(project_root, "scheduler.log")
 
 def log_message(msg: str):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
