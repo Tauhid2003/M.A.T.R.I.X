@@ -26,7 +26,13 @@ M.A.T.R.I.X/
 │   ├── build_iso.sh           # Main compiler script for creating bootable ISOs
 │   ├── chroot_setup.sh        # Chroot environment customizer (Ollama, Wine, Mate)
 │   ├── cx.preseed             # Unattended automated Debian installer config
-│   ├── matrix-daemon.service  # Systemd service daemon config
+│   ├── matrix-daemon.service  # Systemd core scheduler service config
+│   ├── matrix-api.service     # Systemd web API daemon service config
+│   ├── matrix-sandbox-profile # AppArmor security sandboxing profile
+│   ├── matrix-sandbox.sh      # Bubblewrap system execution jail script
+│   ├── run_qemu.sh            # Local QEMU emulator test script
+│   ├── test_sandbox.sh        # Sandbox AppArmor / Bubblewrap parser tester
+│   ├── verify_boot.sh         # Automated headless QEMU boot validation script
 │   └── sys_spec.json          # System specification configuration matrix
 ├── src/                       # OS logic and UI application components
 │   ├── core/                  # Core OS features and daemon APIs
@@ -102,6 +108,16 @@ You can test boot the compiled live ISO using the built-in QEMU launcher script:
 bash iso_build/run_qemu.sh
 ```
 
+### 6. Running Automated Boot and Sandbox Verification
+To run headless validation tests for system service boots and sandbox jail boundaries:
+```bash
+# Verify ISO boot success and service registration
+bash iso_build/verify_boot.sh
+
+# Verify Bubblewrap mounts and AppArmor profile syntax
+bash iso_build/test_sandbox.sh
+```
+
 ---
 
 ## 🔒 Security Confinement & Sandboxing Architecture
@@ -109,8 +125,11 @@ bash iso_build/run_qemu.sh
 M.A.T.R.I.X OS enforces strict local containment layers at the daemon level:
 1. **Local-Only Binding**: The API Daemon binds exclusively to `127.0.0.1:8000` to prevent unauthorized remote requests over local networks.
 2. **CORS Origin Validation**: Wildcard CORS is disabled. Only the local Vite development origin (`localhost:5173`) and production API origin (`localhost:8000`) are allowed.
-3. **Nautilus Confinement**: Folder exploration and file reading are locked to sandboxed paths (e.g. `/var/lib/matrix`, `/home/matrix`) and specific allow-listed configuration files. Attempts to escape via directory traversals are halted with `403 Forbidden`.
-4. **Shell Execution Sandboxing**:
+3. **Privilege Separation**: System API and Core Scheduler services run under the unprivileged `matrix` system user, limiting standard system exposure.
+4. **AppArmor Profile**: The custom `matrix-sandbox-profile` restricts execution paths and blocks write access to `/etc/passwd`, `/etc/shadow`, `/boot/`, and raw network socket creation.
+5. **Bubblewrap Containment**: Interactive terminal tasks run jailed within Bubblewrap (`bwrap`) containers, using read-only mappings for core directories (`/usr`, `/lib`, `/bin`) and isolating IPC and network spaces.
+6. **Nautilus Confinement**: Folder exploration and file reading are locked to sandboxed paths (e.g. `/var/lib/matrix`, `/home/matrix`) and specific allow-listed configuration files. Attempts to escape via directory traversals are halted with `403 Forbidden`.
+7. **Shell Execution Sandboxing**:
    - Safe commands (e.g. `ls`, `pwd`, `git status`) are parsed using `shlex.split` and executed with `shell=False` to prevent command chaining.
    - Any command containing chaining characters (`;`, `&`, `|`, etc.) is blocked from immediate execution and routed to the operator's pending queue.
    - An audit trail of all executed commands is persisted to `/var/log/matrix_api_audit.log`.
