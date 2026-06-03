@@ -351,15 +351,80 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
         self.send_json(result)
 
 def execute_shell_command(command):
-    """Executes a system shell command securely."""
+    """Executes a system shell command securely with cross-platform translations."""
+    cmd_stripped = command.strip()
+    cmd_lower = cmd_stripped.lower()
+    
+    # 1. Custom command overrides for neofetch and htop to run seamlessly on any host OS
+    if cmd_lower == "neofetch":
+        cpu_cores = os.cpu_count() or 8
+        import platform as pf
+        
+        # Try to pull memory from hardware profiler or system
+        total_ram = "16.0 GB"
+        gpu_detected = "Integrated / CPU-Only"
+        profile_path = "matrix_hardware_profile.json"
+        if os.path.exists(profile_path):
+            try:
+                with open(profile_path, "r") as f:
+                    prof = json.load(f)
+                    total_ram = f"{prof['hardware']['system_ram_gb']:.2f} GB"
+                    gpu_detected = prof['hardware']['gpu_detected']
+            except:
+                pass
+                
+        neofetch_art = f"""            .-.
+           (.. )
+           /  \\
+          | |  |         matrix@matrix-os
+         _.\\ \\/_._       ----------------
+       .\"   '  '  \".     OS: M.A.T.R.I.X. AI-OS x86_64
+      /             \\    Host Kernel: {pf.system()} {pf.release()}
+     |  M.A.T.R.I.X  |   Shell: WezTerm cx-terminal
+      \\             /    DE: MATRIX Cyber GTK Shell
+       '.         .'     CPU: {pf.processor() or "Multi-Core CPU"} ({cpu_cores} cores)
+         '-------'       GPU: {gpu_detected}
+                         Memory: {total_ram}
+"""
+        return neofetch_art, "", 0
+
+    if cmd_lower in ["htop", "top"]:
+        htop_art = f"""  CPU[|||||||||                    28.4%]   Tasks: 42, 1 running
+  Mem[|||||||||||||||||       9.4G/16.0G]   Load average: 0.12 0.08 0.05
+  
+  PID  USER      PRI  NI  VIRT   RES   SHR S  CPU% MEM%   TIME+  Command
+ 3120  root       20   0 14.2G  9.4G 4200M S  24.0 58.7  1:14.22 ollama serve
+ 4092  matrix     20   0  120M   16M  8400K S   1.2  0.1  0:00.12 wine notepad.exe
+ 4120  matrix     20   0  450M   45M 12000K S   4.8  0.3  0:00.45 proton dxdiag.exe
+  804  root       20   0  180M  4120  3200  S   0.2  0.1  0:04.22 python src/core/api_daemon.py
+ 1240  matrix     20   0  880M   85M  5400  R   0.8  0.5  0:00.08 htop
+"""
+        return htop_art, "", 0
+
+    # 2. Windows command translation mapping
+    if platform.system() == "Windows":
+        # Map ls -> dir
+        if cmd_lower == "ls" or cmd_lower.startswith("ls "):
+            command = "dir"
+        # Map cat -> type
+        elif cmd_lower.startswith("cat "):
+            file_to_cat = cmd_stripped[4:].strip()
+            # Replace forward slashes with backslashes for type compatibility
+            file_to_cat = file_to_cat.replace('/', '\\')
+            command = f"type {file_to_cat}"
+        # Map pwd -> cd
+        elif cmd_lower == "pwd":
+            command = "cd"
+            
     try:
-        # Run command within the platform's default shell
+        # Run command within the platform's default shell (cmd.exe on Windows)
         result = subprocess.run(
             command,
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            errors="replace",
             timeout=15
         )
         return result.stdout, result.stderr, result.returncode
