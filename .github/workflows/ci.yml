@@ -1,0 +1,46 @@
+name: M.A.T.R.I.X OS CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Run Shellcheck on Scripts
+        run: |
+          shellcheck iso_build/*.sh
+
+      - name: Run UI Dependency Install, Lint & Build
+        run: |
+          cd src/ui
+          npm install
+          npm run lint
+          npm run build
+
+      - name: Validate Python Core Syntax
+        run: |
+          python -m compileall src/core src/scheduler
+
+      - name: Run Python Core Runtime Smoke Tests
+        run: |
+          python src/core/smoke_core.py

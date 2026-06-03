@@ -77,11 +77,12 @@ npm install
 npm run dev
 ```
 
-### 2. Running the Unified API Daemon Backend
-Start the backend REST service (running on port 8000 by default):
+### 2. Running the Unified API Daemon & Static Web Server
+Start the backend REST API service (which also serves the compiled React UI static files on non-API routes):
 ```bash
 python src/core/api_daemon.py
 ```
+Open `http://127.0.0.1:8000` in your web browser to access the control panel.
 
 ### 3. Simulating the Task Scheduler
 Run the scheduler simulation suite locally using Python:
@@ -89,13 +90,36 @@ Run the scheduler simulation suite locally using Python:
 python src/scheduler/scheduler_prototype.py
 ```
 
-### 3. Compiling the Live ISO (Linux Host only)
-Run the ISO build script with root privileges:
+### 4. Compiling the Live ISO (Linux Host only)
+Run the ISO build script with root privileges. The script will automatically trigger `npm run build` to compile the operator UI, bundle all services, and generate the bootable image:
 ```bash
 sudo ./iso_build/build_iso.sh
 ```
 
-### 4. Compiling the Live ISO (Windows Host via VirtualBox VM)
+### 5. Running the QEMU Boot Test VM
+You can test boot the compiled live ISO using the built-in QEMU launcher script:
+```bash
+bash iso_build/run_qemu.sh
+```
+
+---
+
+## 🔒 Security Confinement & Sandboxing Architecture
+
+M.A.T.R.I.X OS enforces strict local containment layers at the daemon level:
+1. **Local-Only Binding**: The API Daemon binds exclusively to `127.0.0.1:8000` to prevent unauthorized remote requests over local networks.
+2. **CORS Origin Validation**: Wildcard CORS is disabled. Only the local Vite development origin (`localhost:5173`) and production API origin (`localhost:8000`) are allowed.
+3. **Nautilus Confinement**: Folder exploration and file reading are locked to sandboxed paths (e.g. `/var/lib/matrix`, `/home/matrix`) and specific allow-listed configuration files. Attempts to escape via directory traversals are halted with `403 Forbidden`.
+4. **Shell Execution Sandboxing**:
+   - Safe commands (e.g. `ls`, `pwd`, `git status`) are parsed using `shlex.split` and executed with `shell=False` to prevent command chaining.
+   - Any command containing chaining characters (`;`, `&`, `|`, etc.) is blocked from immediate execution and routed to the operator's pending queue.
+   - An audit trail of all executed commands is persisted to `/var/log/matrix_api_audit.log`.
+
+---
+
+## 🛠️ Offline Debian Compiler Setup (Windows Host via VirtualBox VM)
+
+### 6. Compiling the Live ISO (Windows Host via VirtualBox VM)
 Because Windows cannot natively compile a Debian `chroot` filesystem, you can run a headless Debian Virtual Machine inside VirtualBox to serve as the compiler host:
 1. **Prerequisites**: Install [VirtualBox](https://www.virtualbox.org/) and [Vagrant](https://www.vagrantup.com/).
 2. **Setup Vagrant VM**: Initialize and download a minimal Debian 12 base box:

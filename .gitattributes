@@ -1,0 +1,2 @@
+# Enforce Unix line endings (LF) for all shell script files to prevent CRLF parsing errors in Linux
+*.sh text eol=lf

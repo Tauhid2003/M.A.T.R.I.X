@@ -1,0 +1,35 @@
+# AppArmor profile for M.A.T.R.I.X sandbox container processes
+# Permits access to core standard libraries while denying critical OS files and raw socket access.
+
+abi <abi/3.5>,
+
+include <tunables/global>
+
+profile matrix-sandbox-profile flags=(attach_disconnected) {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+
+  # Allow execution of common shell utilities
+  /usr/bin/bash r-x,
+  /usr/bin/sh r-x,
+  /usr/bin/ls r-x,
+  /usr/bin/pwd r-x,
+  /usr/bin/whoami r-x,
+  /usr/bin/python3* r-x,
+
+  # Allow read-write access only to user sandbox folders and cache paths
+  /var/lib/matrix/** rw,
+  /home/matrix/** rw,
+  /tmp/matrix_build/** rw,
+
+  # Deny write access to critical OS config directories
+  deny /etc/passwd w,
+  deny /etc/shadow w,
+  deny /etc/sudoers w,
+  deny /boot/** w,
+  deny /var/log/syslog w,
+
+  # Restrict low-level network sockets to block arbitrary outbound network egress
+  deny network raw,
+  deny network packet,
+}

@@ -50,6 +50,7 @@
     "openssh-client",
     "openssh-server",
     "winehq-devel",
+    "cabextract",
     "libgl1-mesa-dri",
     "libglx-mesa0",
     "mesa-utils",
@@ -100,7 +101,10 @@
     "espeak",
     "xdotool",
     "git",
-    "curl"
+    "curl",
+    "bubblewrap",
+    "apparmor",
+    "apparmor-utils"
   ],
   "package_repositories": {
     "debian_components": [
