@@ -109,6 +109,7 @@
     "apparmor",
     "apparmor-utils",
     "lightdm",
+    "lightdm-gtk-greeter",
     "firefox-esr",
     "nodejs",
     "npm"
