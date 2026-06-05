@@ -26,8 +26,27 @@ else
 fi
 
 SANDBOX_HOME="/home/matrix"
-SANDBOX_UID="$(stat -c '%u' "$SANDBOX_HOME" 2>/dev/null || id -u)"
-SANDBOX_GID="$(stat -c '%g' "$SANDBOX_HOME" 2>/dev/null || id -g)"
+if [ ! -e "$SANDBOX_HOME" ]; then
+  echo "Error: sandbox home $SANDBOX_HOME is missing. Refusing to run."
+  exit 1
+fi
+
+SANDBOX_UID="$(stat -c '%u' "$SANDBOX_HOME")"
+SANDBOX_GID="$(stat -c '%g' "$SANDBOX_HOME")"
+if [ "$SANDBOX_UID" -eq 0 ] || [ "$SANDBOX_GID" -eq 0 ]; then
+  if [ "${MATRIX_SANDBOX_ALLOW_ROOT:-}" = "1" ]; then
+    echo "Warning: sandbox home is owned by root; privilege drop overridden."
+  else
+    echo "Error: sandbox home is root-owned. Refusing to run without privilege drop."
+    echo "Set MATRIX_SANDBOX_ALLOW_ROOT=1 to override this check."
+    exit 1
+  fi
+fi
+
+SANDBOX_HOME_BIND=(--ro-bind "$SANDBOX_HOME" "$SANDBOX_HOME")
+if [ "${MATRIX_SANDBOX_ALLOW_HOME_WRITE:-}" = "1" ]; then
+  SANDBOX_HOME_BIND=(--bind "$SANDBOX_HOME" "$SANDBOX_HOME")
+fi
 
 echo "[Sandbox] Launching command inside Bubblewrap + AppArmor jail..."
 "${AA_PREFIX[@]}" bwrap \
@@ -42,7 +61,7 @@ echo "[Sandbox] Launching command inside Bubblewrap + AppArmor jail..."
   --proc /proc \
   --dev /dev \
   --bind /var/lib/matrix /var/lib/matrix \
-  --bind "$SANDBOX_HOME" "$SANDBOX_HOME" \
+  "${SANDBOX_HOME_BIND[@]}" \
   --unshare-all \
   --unshare-user \
   --uid "$SANDBOX_UID" \
