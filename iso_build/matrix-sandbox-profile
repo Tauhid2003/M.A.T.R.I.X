@@ -9,6 +9,11 @@ profile matrix-sandbox-profile flags=(attach_disconnected) {
   #include <abstractions/base>
   #include <abstractions/nameservice>
 
+  # Block privilege escalation via capabilities, mounts, and ptrace
+  deny capability,
+  deny mount,
+  deny ptrace,
+
   # Allow execution of common shell utilities (ix forces inheriting this profile)
   /usr/bin/bash ix,
   /usr/bin/sh ix,
@@ -38,6 +43,19 @@ profile matrix-sandbox-profile flags=(attach_disconnected) {
   deny /usr/bin/systemctl x,
   deny /usr/bin/chown x,
   deny /usr/bin/chmod x,
+  deny /usr/bin/pkexec x,
+  deny /usr/bin/passwd x,
+  deny /usr/bin/chfn x,
+  deny /usr/bin/chsh x,
+  deny /usr/bin/newgrp x,
+  deny /usr/bin/gpasswd x,
+  deny /usr/bin/chage x,
+  deny /usr/sbin/useradd x,
+  deny /usr/sbin/usermod x,
+  deny /usr/sbin/userdel x,
+  deny /usr/sbin/groupadd x,
+  deny /usr/sbin/groupmod x,
+  deny /usr/sbin/groupdel x,
 
   # Restrict low-level network sockets to block arbitrary outbound network egress
   deny network raw,

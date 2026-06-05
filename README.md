@@ -126,7 +126,7 @@ M.A.T.R.I.X OS enforces strict local containment layers at the daemon level:
 1. **Local-Only Binding**: The API Daemon binds exclusively to `127.0.0.1:8000` to prevent unauthorized remote requests over local networks.
 2. **CORS Origin Validation**: Wildcard CORS is disabled. Only the local Vite development origin (`localhost:5173`) and production API origin (`localhost:8000`) are allowed.
 3. **Privilege Separation**: System API and Core Scheduler services run under the unprivileged `matrix` system user, limiting standard system exposure.
-4. **AppArmor Profile**: The custom `matrix-sandbox-profile` restricts execution paths and blocks write access to `/etc/passwd`, `/etc/shadow`, `/boot/`, and raw network socket creation.
+4. **AppArmor Profile**: The custom `matrix-sandbox-profile` restricts execution paths, blocks write access to `/etc/passwd`, `/etc/shadow`, `/boot/`, denies privilege-escalation binaries, and disables capability, mount, and raw network socket access.
 5. **Bubblewrap Containment**: Interactive terminal tasks run jailed within Bubblewrap (`bwrap`) containers, using read-only mappings for core directories (`/usr`, `/lib`, `/bin`) and isolating IPC and network spaces.
 6. **Nautilus Confinement**: Folder exploration and file reading are locked to sandboxed paths (e.g. `/var/lib/matrix`, `/home/matrix`) and specific allow-listed configuration files. Attempts to escape via directory traversals are halted with `403 Forbidden`.
 7. **Shell Execution Sandboxing**:
@@ -156,4 +156,3 @@ Because Windows cannot natively compile a Debian `chroot` filesystem, you can ru
    ```bash
    vagrant destroy -f
    ```
-

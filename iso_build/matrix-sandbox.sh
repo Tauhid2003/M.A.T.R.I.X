@@ -2,9 +2,9 @@
 # M.A.T.R.I.X. Bubblewrap & AppArmor Sandbox Wrapper
 # Runs a command inside a restricted Bubblewrap namespace container jail under strict MAC rules.
 
-COMMAND="$@"
-if [ -z "$COMMAND" ]; then
-  COMMAND="/bin/bash"
+COMMAND=("$@")
+if [ ${#COMMAND[@]} -eq 0 ]; then
+  COMMAND=(/bin/bash)
 fi
 
 if ! command -v bwrap &> /dev/null; then
@@ -13,14 +13,24 @@ if ! command -v bwrap &> /dev/null; then
 fi
 
 if ! command -v aa-exec &> /dev/null; then
-  echo "Warning: aa-exec not found. AppArmor MAC isolation disabled!"
-  AA_PREFIX=""
+  if [ "${MATRIX_SANDBOX_ALLOW_NO_APPARMOR:-}" = "1" ]; then
+    echo "Warning: aa-exec not found. AppArmor MAC isolation disabled!"
+    AA_PREFIX=()
+  else
+    echo "Error: aa-exec not found. Refusing to run without AppArmor MAC isolation."
+    echo "Set MATRIX_SANDBOX_ALLOW_NO_APPARMOR=1 to override this check."
+    exit 1
+  fi
 else
-  AA_PREFIX="aa-exec -p matrix-sandbox-profile "
+  AA_PREFIX=(aa-exec -p matrix-sandbox-profile --)
 fi
 
+SANDBOX_HOME="/home/matrix"
+SANDBOX_UID="$(stat -c '%u' "$SANDBOX_HOME" 2>/dev/null || id -u)"
+SANDBOX_GID="$(stat -c '%g' "$SANDBOX_HOME" 2>/dev/null || id -g)"
+
 echo "[Sandbox] Launching command inside Bubblewrap + AppArmor jail..."
-$AA_PREFIX bwrap \
+"${AA_PREFIX[@]}" bwrap \
   --ro-bind /usr /usr \
   --ro-bind /lib /lib \
   --ro-bind /lib64 /lib64 \
@@ -32,6 +42,11 @@ $AA_PREFIX bwrap \
   --proc /proc \
   --dev /dev \
   --bind /var/lib/matrix /var/lib/matrix \
-  --bind /home/matrix /home/matrix \
+  --bind "$SANDBOX_HOME" "$SANDBOX_HOME" \
   --unshare-all \
-  $COMMAND
+  --unshare-user \
+  --uid "$SANDBOX_UID" \
+  --gid "$SANDBOX_GID" \
+  --cap-drop ALL \
+  -- \
+  "${COMMAND[@]}"
