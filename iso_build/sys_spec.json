@@ -107,7 +107,11 @@
     "curl",
     "bubblewrap",
     "apparmor",
-    "apparmor-utils"
+    "apparmor-utils",
+    "lightdm",
+    "firefox-esr",
+    "nodejs",
+    "npm"
   ],
   "package_repositories": {
     "debian_components": [
