@@ -132,7 +132,7 @@
   "local_ai_daemon": {
     "engine": "ollama",
     "baked_models": [
-      "qwen3:8b"
+      "qwen2.5:0.5b"
     ],
     "optional_power_models": [
       "qwen3:30b",
