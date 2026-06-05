@@ -9,6 +9,8 @@ jobs:
   design_ui:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
       - name: UI/UX Agent Prompt
         run: |
           echo "🎨 UI/UX AGENT"

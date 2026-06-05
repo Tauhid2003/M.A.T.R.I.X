@@ -10,6 +10,8 @@ jobs:
   debug_and_test:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
       - name: Debugger & Tester Agent Prompt
         run: |
           echo "🐞 DEBUGGER & TESTER AGENT"
