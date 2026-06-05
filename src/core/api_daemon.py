@@ -15,6 +15,23 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import uuid
 import ctypes
+import threading
+import asyncio
+
+try:
+    import websockets
+    HAS_WEBSOCKETS = True
+except ImportError:
+    HAS_WEBSOCKETS = False
+
+try:
+    import pty
+    import fcntl
+    import termios
+    import struct
+    HAS_PTY = True
+except ImportError:
+    HAS_PTY = False
 
 # Configuration constants
 PORT = 8000
@@ -860,12 +877,21 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
             used_ram, total_ram, ram_load = get_linux_ram()
             cpu_load = get_linux_cpu()
             
+        matrix_core_status = "Not Loaded"
+        if not is_windows and os.path.exists("/proc/matrix_core"):
+            try:
+                with open("/proc/matrix_core", "r") as f:
+                    matrix_core_status = f.read().strip()
+            except:
+                pass
+            
         self.send_json({
             "cpu_load": cpu_load,
             "ram_used_gb": used_ram,
             "ram_total_gb": total_ram,
             "ram_load_percent": ram_load,
-            "is_real_telemetry": True
+            "is_real_telemetry": True,
+            "matrix_core_telemetry": matrix_core_status
         })
 
 class MEMORYSTATUSEX(ctypes.Structure):
@@ -1087,5 +1113,100 @@ def run(server_class=HTTPServer, handler_class=MatrixAPIHandler):
     except KeyboardInterrupt:
         print("\nDaemon shutting down.")
 
+async def terminal_handler(websocket, path=None):
+    if HAS_PTY:
+        # Linux / Unix true PTY
+        pid, fd = pty.fork()
+        if pid == 0:
+            os.environ['TERM'] = 'xterm-256color'
+            subprocess.run(["bash"])
+            sys.exit(0)
+        else:
+            loop = asyncio.get_running_loop()
+            
+            def pty_read():
+                try:
+                    data = os.read(fd, 1024)
+                    if data:
+                        asyncio.run_coroutine_threadsafe(websocket.send(data.decode("utf-8", "replace")), loop)
+                except Exception:
+                    pass
+
+            loop.add_reader(fd, pty_read)
+
+            try:
+                async for message in websocket:
+                    if isinstance(message, str):
+                        if message.startswith('{"type":"resize"'):
+                            try:
+                                msg = json.loads(message)
+                                winsize = struct.pack("HHHH", msg['rows'], msg['cols'], 0, 0)
+                                fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
+                            except:
+                                pass
+                        else:
+                            os.write(fd, message.encode("utf-8"))
+            except Exception:
+                pass
+            finally:
+                loop.remove_reader(fd)
+                try:
+                    os.kill(pid, 9)
+                except:
+                    pass
+    else:
+        # Windows Fallback
+        process = subprocess.Popen(
+            ["cmd.exe"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            bufsize=0,
+            text=True
+        )
+
+        loop = asyncio.get_running_loop()
+
+        def reader():
+            while True:
+                try:
+                    char = process.stdout.read(1)
+                    if not char:
+                        break
+                    asyncio.run_coroutine_threadsafe(websocket.send(char), loop)
+                except:
+                    break
+
+        thread = threading.Thread(target=reader, daemon=True)
+        thread.start()
+
+        try:
+            async for message in websocket:
+                if isinstance(message, str) and not message.startswith('{"type":"resize"'):
+                    if process.stdin:
+                        process.stdin.write(message)
+                        process.stdin.flush()
+        except Exception:
+            pass
+        finally:
+            try:
+                process.terminate()
+            except:
+                pass
+
+async def main_ws():
+    print("Starting Web Terminal WebSocket server on port 8001...")
+    async with websockets.serve(terminal_handler, "127.0.0.1", 8001):
+        await asyncio.Future()  # run forever
+
+def run_ws_server():
+    if not HAS_WEBSOCKETS:
+        print("Websockets library not found. Terminal disabled.")
+        return
+    asyncio.run(main_ws())
+
 if __name__ == "__main__":
+    if HAS_WEBSOCKETS:
+        ws_thread = threading.Thread(target=run_ws_server, daemon=True)
+        ws_thread.start()
     run()

@@ -77,7 +77,12 @@ mkdir -p "${CHROOT_DIR}/usr/local/bin"
 cp "${SCRIPT_DIR}/../src/core/hardware_profiler.py" "${CHROOT_DIR}/usr/local/bin/hardware_profiler.py"
 cp "${SCRIPT_DIR}/../src/core/firstboot_setup.py" "${CHROOT_DIR}/usr/local/bin/firstboot_setup.py"
 cp "${SCRIPT_DIR}/../src/core/api_daemon.py" "${CHROOT_DIR}/usr/local/bin/api_daemon.py"
+cp "${SCRIPT_DIR}/../src/core/matrix_ai.py" "${CHROOT_DIR}/usr/local/bin/matrix-ai"
 cp "${SCRIPT_DIR}/../src/scheduler/scheduler_daemon.py" "${CHROOT_DIR}/usr/local/bin/matrix_scheduler.py"
+
+# Copy kernel module source
+mkdir -p "${CHROOT_DIR}/usr/src/matrix_core"
+cp -r "${SCRIPT_DIR}/../src/kernel/matrix_core/"* "${CHROOT_DIR}/usr/src/matrix_core/"
 
 # Copy Sandbox utilities and AppArmor profile
 mkdir -p "${CHROOT_DIR}/etc/apparmor.d"
@@ -94,6 +99,7 @@ fi
 chmod +x "${CHROOT_DIR}/usr/local/bin/hardware_profiler.py"
 chmod +x "${CHROOT_DIR}/usr/local/bin/firstboot_setup.py"
 chmod +x "${CHROOT_DIR}/usr/local/bin/api_daemon.py"
+chmod +x "${CHROOT_DIR}/usr/local/bin/matrix-ai"
 chmod +x "${CHROOT_DIR}/usr/local/bin/matrix_scheduler.py"
 chmod +x "${CHROOT_DIR}/usr/local/bin/matrix-sandbox.sh"
 chmod +x "${CHROOT_DIR}/chroot_setup.sh"

@@ -91,6 +91,21 @@ ff02::1 ip6-allnodes
 ff02::2 ip6-allrouters
 EOF
 
+# 7.5 Compile and install matrix_core Kernel Module
+echo "Compiling matrix_core Kernel Module..."
+if [ -d /usr/src/matrix_core ]; then
+    cd /usr/src/matrix_core
+    # Find the installed kernel version
+    KVER=$(ls /lib/modules | sort -V | tail -n 1)
+    echo "Detected kernel version for module compilation: $KVER"
+    make KERNELRELEASE=$KVER
+    mkdir -p /lib/modules/$KVER/kernel/drivers/char/
+    cp matrix_core.ko /lib/modules/$KVER/kernel/drivers/char/
+    depmod -a $KVER
+    echo "matrix_core" >> /etc/modules
+    cd /
+fi
+
 # 8. Perform filesystem compilation cleanup to reduce SquashFS size
 echo "Performing filesystem compilation cleanup..."
 apt-get clean

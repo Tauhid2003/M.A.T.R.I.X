@@ -26,6 +26,7 @@ export default function SystemDaemonTab() {
   const [cpuCores, setCpuCores] = useState(8);
   const [cpuThreads, setCpuThreads] = useState(16);
   const [isApiMode, setIsApiMode] = useState(false);
+  const [kernelCoreStatus, setKernelCoreStatus] = useState('Not Loaded');
 
   // Fetch real hardware profile and daemon status if API is online
   useEffect(() => {
@@ -108,6 +109,7 @@ export default function SystemDaemonTab() {
             setCpuLoad(data.cpu_load);
             setRamUsage(data.ram_used_gb);
             if (data.ram_total_gb) setRamLimit(data.ram_total_gb);
+            if (data.matrix_core_telemetry) setKernelCoreStatus(data.matrix_core_telemetry);
             
             // Standard dynamic mock variables with minor delta fluctuations
             setGpuLoad(prev => {
@@ -564,6 +566,7 @@ export default function SystemDaemonTab() {
           </div>
 
           <div className="explain-box" style={{ background: 'hsla(230, 25%, 20%, 0.1)', border: '1px solid var(--border-color)', color: 'var(--color-text-muted)', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <div><strong>matrix_core module:</strong> <span style={{ color: kernelCoreStatus.includes('MATRIX_OS_CORE_STATUS=OK') ? 'var(--accent-green)' : 'var(--accent-rose)', fontSize: '0.7rem' }}><pre style={{margin:0}}>{kernelCoreStatus}</pre></span></div>
             <div><strong>persistent mmap swap:</strong> Active swap rate: <strong>1.2 GB/s</strong>.</div>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '4px', fontSize: '0.62rem', fontFamily: 'var(--font-mono)' }}>
               🔊 Sound Card: ALC1220 (System: <span style={{ color: 'var(--accent-cyan)' }}>{audioDriverName}</span>)

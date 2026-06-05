@@ -9,13 +9,13 @@ profile matrix-sandbox-profile flags=(attach_disconnected) {
   #include <abstractions/base>
   #include <abstractions/nameservice>
 
-  # Allow execution of common shell utilities
-  /usr/bin/bash r-x,
-  /usr/bin/sh r-x,
-  /usr/bin/ls r-x,
-  /usr/bin/pwd r-x,
-  /usr/bin/whoami r-x,
-  /usr/bin/python3* r-x,
+  # Allow execution of common shell utilities (ix forces inheriting this profile)
+  /usr/bin/bash ix,
+  /usr/bin/sh ix,
+  /usr/bin/ls ix,
+  /usr/bin/pwd ix,
+  /usr/bin/whoami ix,
+  /usr/bin/python3* ix,
 
   # Allow read-write access only to user sandbox folders and cache paths
   /var/lib/matrix/** rw,
@@ -23,11 +23,21 @@ profile matrix-sandbox-profile flags=(attach_disconnected) {
   /tmp/matrix_build/** rw,
 
   # Deny write access to critical OS config directories
-  deny /etc/passwd w,
-  deny /etc/shadow w,
-  deny /etc/sudoers w,
+  deny /etc/** w,
   deny /boot/** w,
-  deny /var/log/syslog w,
+  deny /var/log/** w,
+  deny /dev/kmsg rw,
+
+  # Deny execution of privilege escalation and dangerous binaries
+  deny /usr/bin/sudo x,
+  deny /usr/bin/su x,
+  deny /usr/bin/mount x,
+  deny /usr/bin/umount x,
+  deny /usr/bin/apt x,
+  deny /usr/bin/dpkg x,
+  deny /usr/bin/systemctl x,
+  deny /usr/bin/chown x,
+  deny /usr/bin/chmod x,
 
   # Restrict low-level network sockets to block arbitrary outbound network egress
   deny network raw,

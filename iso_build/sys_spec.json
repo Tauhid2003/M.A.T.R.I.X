@@ -16,6 +16,8 @@
   ],
   "packages_to_include": [
     "linux-image-amd64",
+    "linux-headers-amd64",
+    "build-essential",
     "live-boot",
     "live-config",
     "live-config-systemd",
@@ -97,6 +99,7 @@
     "tzdata",
     "python3",
     "python3-pip",
+    "python3-websockets",
     "sqlite3",
     "espeak",
     "xdotool",
