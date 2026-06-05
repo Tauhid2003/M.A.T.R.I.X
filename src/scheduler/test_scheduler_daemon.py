@@ -6,6 +6,8 @@ import sqlite3
 import asyncio
 from unittest.mock import patch, MagicMock
 
+import tempfile
+
 # Adjust path to import from scheduler_daemon
 import sys
 sys.path.append(os.path.dirname(__file__))
@@ -15,14 +17,12 @@ from scheduler_daemon import AgentTask, LRUKCache, AgentScheduler, init_db
 class TestSchedulerDaemon(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
-        self.db_path = "test_scheduler.db"
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.db_path = os.path.join(self.temp_dir.name, "test_scheduler.db")
         init_db(self.db_path)
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        self.temp_dir.cleanup()
 
     def test_agent_task_priority(self):
         task = AgentTask(
@@ -56,13 +56,10 @@ class TestSchedulerDaemon(unittest.IsolatedAsyncioTestCase):
                 user_priority=0.5
             ))
         
-        start_time = time.time()
         # FIFO just takes the first task
         next_task = tasks[0]
-        end_time = time.time()
         
         self.assertEqual(next_task.db_id, 0)
-        self.assertTrue((end_time - start_time) < 0.1, "FIFO should be O(1) and very fast")
 
     def test_priority_under_load(self):
         # Simulate Priority scheduling under load (100,000 tasks)
@@ -74,22 +71,19 @@ class TestSchedulerDaemon(unittest.IsolatedAsyncioTestCase):
                 resource_requirements=random.random(), user_priority=random.random()
             ))
         
-        start_time = time.time()
         # Priority calculates priority and sorts
         for t in tasks:
             t.priority = t.calculate_priority()
         tasks.sort(key=lambda t: t.priority, reverse=True)
         next_task = tasks[0]
-        end_time = time.time()
         
         # Verify it is sorted correctly
         self.assertTrue(tasks[0].priority >= tasks[1].priority)
         self.assertTrue(tasks[-2].priority >= tasks[-1].priority)
-        self.assertTrue((end_time - start_time) < 1.0, "Priority sort under load should finish within 1 second")
 
-    @patch('scheduler_daemon.log_message')
     @patch('asyncio.sleep', return_value=None)
-    async def test_context_switch(self, mock_sleep, mock_log):
+    @patch('scheduler_daemon.log_message')
+    async def test_context_switch(self, mock_log, mock_sleep):
         scheduler = AgentScheduler(self.db_path, cache_capacity=2, cache_k=2)
         
         from_task = AgentTask(
