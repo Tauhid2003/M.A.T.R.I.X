@@ -14,6 +14,14 @@ The workspace is organized into three core components:
 
 ---
 
+## 📊 Project Maturity & Roadmap
+
+**Current rating (0–100 as a “real OS”)**: **50/100** — Debian-based distribution with a meaningful AI-focused userland and ISO build pipeline, but no new kernel/driver stack and several prototype UI features.
+
+See **[docs/roadmap.md](docs/roadmap.md)** for external perspectives, target profile selection, and the future work roadmap.
+
+---
+
 ## 📁 Repository Directory Layout
 
 The project files have been reorganized into a standardized structure:
@@ -156,4 +164,3 @@ Because Windows cannot natively compile a Debian `chroot` filesystem, you can ru
    ```bash
    vagrant destroy -f
    ```
-
