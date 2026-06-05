@@ -26,13 +26,17 @@ else
 fi
 
 SANDBOX_HOME="/home/matrix"
-if [ ! -e "$SANDBOX_HOME" ]; then
-  echo "Error: sandbox home $SANDBOX_HOME is missing. Refusing to run."
+if [ ! -d "$SANDBOX_HOME" ] || [ -L "$SANDBOX_HOME" ]; then
+  echo "Error: sandbox home $SANDBOX_HOME must be a real directory. Refusing to run."
   exit 1
 fi
 
 SANDBOX_UID="$(stat -c '%u' "$SANDBOX_HOME")"
 SANDBOX_GID="$(stat -c '%g' "$SANDBOX_HOME")"
+if ! [[ "$SANDBOX_UID" =~ ^[0-9]+$ ]] || ! [[ "$SANDBOX_GID" =~ ^[0-9]+$ ]]; then
+  echo "Error: sandbox UID/GID could not be determined safely. Refusing to run."
+  exit 1
+fi
 if [ "$SANDBOX_UID" -eq 0 ] || [ "$SANDBOX_GID" -eq 0 ]; then
   if [ "${MATRIX_SANDBOX_ALLOW_ROOT:-}" = "1" ]; then
     echo "Warning: sandbox home is owned by root; privilege drop overridden."

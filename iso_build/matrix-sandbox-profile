@@ -9,7 +9,7 @@ profile matrix-sandbox-profile flags=(attach_disconnected) {
   #include <abstractions/base>
   #include <abstractions/nameservice>
 
-  # Block kernel capabilities/mount/ptrace to prevent sandbox escape attempts.
+  # Block all Linux capabilities, mount, and ptrace to prevent sandbox escape attempts.
   deny capability,
   deny mount,
   deny ptrace,
