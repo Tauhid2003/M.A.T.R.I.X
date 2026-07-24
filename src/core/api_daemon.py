@@ -33,6 +33,31 @@ try:
 except ImportError:
     HAS_PTY = False
 
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scheduler")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "benchmarks")))
+
+try:
+    from telemetry import TRACER
+except ImportError:
+    TRACER = None
+
+try:
+    from policy_engine import PolicyEngine
+    POLICY_ENGINE = PolicyEngine()
+except ImportError:
+    POLICY_ENGINE = None
+
+try:
+    from energy_aware_scheduler import PowerStateSensor
+except ImportError:
+    PowerStateSensor = None
+
+try:
+    from matrix_bench import MATRIXBenchmarkEngine
+except ImportError:
+    MATRIXBenchmarkEngine = None
+
 # Configuration constants
 PORT = 8000
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -212,6 +237,10 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
                 self.handle_launch_firefox()
             elif path == "/api/telemetry":
                 self.handle_get_telemetry()
+            elif path == "/api/policy":
+                self.handle_get_policy()
+            elif path == "/api/benchmarks":
+                self.handle_get_benchmarks()
             else:
                 self.send_json({"error": "Endpoint not found"}, 404)
         else:
@@ -878,7 +907,7 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
         self.send_json({"status": "success", "isRunning": False})
 
     def handle_get_telemetry(self):
-        """Calculates and returns real CPU and RAM telemetry for the dashboard."""
+        """Calculates and returns real CPU, RAM, power draw (W), and energy telemetry for the dashboard."""
         is_windows = platform.system() == "Windows"
         
         # Fetch memory metrics
@@ -896,6 +925,9 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
                     matrix_core_status = f.read().strip()
             except:
                 pass
+
+        power_info = PowerStateSensor.get_hardware_telemetry() if PowerStateSensor else {}
+        opentelemetry_summary = TRACER.get_summary_telemetry() if TRACER else {}
             
         self.send_json({
             "cpu_load": cpu_load,
@@ -903,8 +935,40 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
             "ram_total_gb": total_ram,
             "ram_load_percent": ram_load,
             "is_real_telemetry": True,
-            "matrix_core_telemetry": matrix_core_status
+            "matrix_core_telemetry": matrix_core_status,
+            "estimated_watts": power_info.get("estimated_watts", 12.0),
+            "on_battery": power_info.get("on_battery", False),
+            "opentelemetry_genai": opentelemetry_summary
         })
+
+    def handle_get_policy(self):
+        """Returns active security autonomy mode and agent capability profile bounds."""
+        if POLICY_ENGINE:
+            mode_str = POLICY_ENGINE.global_mode.value if hasattr(POLICY_ENGINE.global_mode, 'value') else str(POLICY_ENGINE.global_mode)
+            caps = {}
+            for agent, info in POLICY_ENGINE.capabilities.items():
+                caps[agent] = {
+                    "mode": info["mode"].value if hasattr(info["mode"], 'value') else str(info["mode"]),
+                    "read_paths": info["read_paths"],
+                    "write_paths": info["write_paths"],
+                    "allowed_commands": info["allowed_commands"],
+                    "network_local_scan": info["network_local_scan"],
+                    "network_external": info["network_external"]
+                }
+            self.send_json({
+                "global_autonomy_mode": mode_str,
+                "agent_capabilities": caps
+            })
+        else:
+            self.send_json({"error": "Policy engine unavailable"}, 500)
+
+    def handle_get_benchmarks(self):
+        """Executes automated reproducible MATRIX benchmark sweep and returns metric comparisons."""
+        if MATRIXBenchmarkEngine:
+            report = MATRIXBenchmarkEngine.run_benchmark_suite(num_tasks=20, runs=2)
+            self.send_json(report)
+        else:
+            self.send_json({"error": "Benchmark engine unavailable"}, 500)
 
 class MEMORYSTATUSEX(ctypes.Structure):
     _fields_ = [

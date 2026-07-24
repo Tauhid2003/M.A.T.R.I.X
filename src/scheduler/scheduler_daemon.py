@@ -21,11 +21,23 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 # Dynamic path resolution to load real AgentExecutor engine
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "core")))
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 try:
     from agent_executor import AgentExecutor
     HAS_AGENT_EXECUTOR = True
 except ImportError:
     HAS_AGENT_EXECUTOR = False
+
+try:
+    from energy_aware_scheduler import EnergyAwareSchedulerEngine
+    ENERGY_SCHEDULER = EnergyAwareSchedulerEngine()
+except ImportError:
+    ENERGY_SCHEDULER = None
+
+try:
+    from telemetry import TRACER
+except ImportError:
+    TRACER = None
 
 # Ground truth DB paths with cross-platform fallback
 DB_PATH = "/var/lib/matrix/scheduler.db"
@@ -416,9 +428,19 @@ async def main():
         elif algo == 'rr':
             next_task = tasks[0]
             slice_dur = min(1.0, next_task.remaining_time)
-        else: # priority
+        else: # priority or adaptive
             for t in tasks:
-                t.priority = t.calculate_priority()
+                if ENERGY_SCHEDULER:
+                    t.priority = ENERGY_SCHEDULER.calculate_adaptive_score(
+                        urgency=t.urgency,
+                        aging_boost=t.executed_time * 0.1,
+                        user_priority=t.user_priority,
+                        task_complexity=t.task_complexity,
+                        duration=t.duration,
+                        resource_req=t.resource_requirements
+                    )
+                else:
+                    t.priority = t.calculate_priority()
             tasks.sort(key=lambda t: t.priority, reverse=True)
             next_task = tasks[0]
             slice_dur = next_task.remaining_time

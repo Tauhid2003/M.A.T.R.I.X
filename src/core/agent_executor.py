@@ -11,6 +11,12 @@ import subprocess
 import ast
 from datetime import datetime
 
+try:
+    from policy_engine import PolicyEngine, PolicyDecision
+    POLICY_ENGINE = PolicyEngine()
+except ImportError:
+    POLICY_ENGINE = None
+
 class AgentExecutor:
     """Executes real system actions and diagnostic scans for M.A.T.R.I.X OS agents."""
 
@@ -18,6 +24,12 @@ class AgentExecutor:
     def execute_task_step(agent_id: str, task_name: str, step_num: int, total_steps: int) -> str:
         """Executes a specific real execution step for the target agent and returns a summary."""
         agent_clean = agent_id.strip()
+
+        if POLICY_ENGINE:
+            action_type = "write" if ("Filesystem" in agent_clean or "Stripper" in agent_clean) else "read"
+            policy_check = POLICY_ENGINE.evaluate_action(agent_id, action_type, ".")
+            if policy_check["decision"] == PolicyDecision.DENY:
+                return f"🚫 [Policy Denied] Action for agent '{agent_id}' blocked by security policy: {policy_check['reason']}"
 
         try:
             if "Security" in agent_clean:

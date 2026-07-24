@@ -27,6 +27,10 @@ jobs:
         run: |
           python -m unittest discover -s src/core -p "test_*.py"
 
+      - name: Run Benchmark Suite Tests
+        run: |
+          python -m unittest discover -s src/benchmarks -p "test_*.py"
+
   ui-lint:
     name: Validate UI Package
     runs-on: ubuntu-latest
