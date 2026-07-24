@@ -30,6 +30,8 @@ class AgentExecutor:
             policy_check = POLICY_ENGINE.evaluate_action(agent_id, action_type, ".")
             if policy_check["decision"] == PolicyDecision.DENY:
                 return f"🚫 [Policy Denied] Action for agent '{agent_id}' blocked by security policy: {policy_check['reason']}"
+            elif policy_check["decision"] == PolicyDecision.REQUIRES_APPROVAL:
+                return f"⏳ [Requires Approval] Action for agent '{agent_id}' queued for operator confirmation: {policy_check['reason']}"
 
         try:
             if "Security" in agent_clean:

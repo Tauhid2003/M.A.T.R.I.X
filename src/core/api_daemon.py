@@ -70,17 +70,25 @@ if not os.getenv("MATRIX_DB_PATH"):
 # Generate a cryptographically secure token for local API authorization
 API_TOKEN = uuid.uuid4().hex
 
-TOKEN_FILE = os.getenv("MATRIX_TOKEN_FILE", "/run/matrix/api_token")
-if not os.getenv("MATRIX_TOKEN_FILE"):
-    if platform.system() == "Windows" or not os.access("/run", os.W_OK):
+TOKEN_FILE = os.getenv("MATRIX_TOKEN_FILE")
+if not TOKEN_FILE:
+    candidate_paths = [
+        "/run/matrix/api_token",
+        os.path.join(project_root, "matrix_api_token.txt")
+    ]
+    written = False
+    for p in candidate_paths:
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(p)), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(API_TOKEN)
+            TOKEN_FILE = p
+            written = True
+            break
+        except Exception:
+            continue
+    if not written:
         TOKEN_FILE = os.path.join(project_root, "matrix_api_token.txt")
-
-try:
-    os.makedirs(os.path.dirname(os.path.abspath(TOKEN_FILE)), exist_ok=True)
-    with open(TOKEN_FILE, "w", encoding="utf-8") as f:
-        f.write(API_TOKEN)
-except Exception:
-    pass
 
 # UI build directory resolution (port 8000 unified dashboard)
 UI_DIST_DIR = "/usr/share/matrix/ui"
@@ -744,12 +752,12 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
 
     def handle_post_scheduler_set_algorithm(self, payload):
         algorithm = payload.get("algorithm", "").strip()
-        valid_algos = ['fifo', 'rr', 'sjf', 'priority', 'FIFO', 'RR', 'SJF', 'Priority']
+        valid_algos = ['fifo', 'rr', 'sjf', 'priority', 'matrixadaptive', 'adaptive', 'FIFO', 'RR', 'SJF', 'Priority', 'MatrixAdaptive', 'Adaptive']
         if algorithm not in valid_algos:
-            self.send_json({"error": "Invalid algorithm. Must be FIFO, RR, SJF, or Priority"}, 400)
+            self.send_json({"error": "Invalid algorithm. Must be FIFO, RR, SJF, Priority, or MatrixAdaptive"}, 400)
             return
             
-        safe_algo = "".join(c for c in algorithm if c.isalpha())
+        safe_algo = "".join(c for c in algorithm if c.isalnum())
         
         try:
             conn = sqlite3.connect(DB_PATH)

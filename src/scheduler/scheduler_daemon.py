@@ -428,7 +428,13 @@ async def main():
         elif algo == 'rr':
             next_task = tasks[0]
             slice_dur = min(1.0, next_task.remaining_time)
-        else: # priority or adaptive
+        elif algo == 'priority':
+            for t in tasks:
+                t.priority = t.calculate_priority()
+            tasks.sort(key=lambda t: t.priority, reverse=True)
+            next_task = tasks[0]
+            slice_dur = next_task.remaining_time
+        elif algo in ['matrixadaptive', 'adaptive']:
             for t in tasks:
                 if ENERGY_SCHEDULER:
                     t.priority = ENERGY_SCHEDULER.calculate_adaptive_score(
@@ -441,6 +447,12 @@ async def main():
                     )
                 else:
                     t.priority = t.calculate_priority()
+            tasks.sort(key=lambda t: t.priority, reverse=True)
+            next_task = tasks[0]
+            slice_dur = next_task.remaining_time
+        else: # Default fallback to priority
+            for t in tasks:
+                t.priority = t.calculate_priority()
             tasks.sort(key=lambda t: t.priority, reverse=True)
             next_task = tasks[0]
             slice_dur = next_task.remaining_time
@@ -460,7 +472,19 @@ async def main():
         cursor.execute("UPDATE tasks SET status = 'running' WHERE id = ?", (active_task.db_id,))
         conn.commit()
 
+        # Evaluate optimal model route via Energy-Aware Model Router
+        target_model = "qwen2.5:0.5b"
+        if ENERGY_SCHEDULER:
+            route = ENERGY_SCHEDULER.select_optimal_model_route(active_task.task_complexity, target_model)
+            selected_model = route["selected_model"]
+            log_message(f"🧠 [Model Router] Selected model '{selected_model}' ({route['reason']}) under Power Mode '{route['power_mode']}'")
+        else:
+            selected_model = target_model
+
         for step in range(steps):
+            trace_id = f"task_{active_task.db_id}_{step+1}"
+            span = TRACER.start_span(trace_id, "task_execution", active_task.agent_id) if TRACER else None
+
             await asyncio.sleep(step_time)
             active_task.executed_time += step_time
             active_task.remaining_time = max(0.0, active_task.remaining_time - step_time)
@@ -472,7 +496,7 @@ async def main():
                 action = f"[{algo.upper()}] {real_res}"
             
             if not action:
-                model = get_best_ollama_model()
+                model = selected_model or get_best_ollama_model()
                 if model:
                     prompts = load_agent_prompts()
                     system_prompt = prompts.get(active_task.agent_id, f"You are the {active_task.agent_id} Agent for M.A.T.R.I.X OS.")
@@ -490,6 +514,17 @@ async def main():
                 
             active_task.attention_history.append(action)
             log_message(f"   [Running] '{active_task.agent_id}': {action}")
+
+            # Record telemetry span metrics
+            if span and TRACER:
+                task_energy = ENERGY_SCHEDULER.estimate_task_energy_cost(step_time, active_task.task_complexity, active_task.resource_requirements) if ENERGY_SCHEDULER else 10.0
+                span.finish({
+                    "energy_joules": task_energy,
+                    "tokens_generated": 15 * (step + 1),
+                    "task_name": active_task.task_name,
+                    "model": selected_model
+                })
+                TRACER.record_span(span)
 
             cursor.execute("""
                 UPDATE tasks
