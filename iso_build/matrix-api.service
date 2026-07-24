@@ -11,10 +11,12 @@ Restart=always
 RestartSec=5
 User=matrix
 Group=matrix
+RuntimeDirectory=matrix
+RuntimeDirectoryMode=0750
 
 # Security hardening constraints for Systemd
 ProtectSystem=strict
-ReadWritePaths=/var/lib/matrix /var/log /tmp
+ReadWritePaths=/var/lib/matrix /var/log /tmp /run/matrix
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes

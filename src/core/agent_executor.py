@@ -67,26 +67,24 @@ class AgentExecutor:
             return f"🛡️ [Security] Environment Audit: System user context '{os.getenv('USER', os.getenv('USERNAME', 'matrix'))}' verified under execution boundary."
 
     @staticmethod
-    def _execute_filesystem_cleanup(step: int, total_steps: int) -> str:
+    def _execute_filesystem_cleanup(step: int, total_steps: int, target_dir: str = None) -> str:
         if step == 1:
-            # Scan temporary cache files
-            temp_dir = "/tmp" if platform.system() != "Windows" else os.getenv("TEMP", ".")
+            scan_dir = target_dir or ("/tmp" if platform.system() != "Windows" else os.getenv("TEMP", "."))
             files_count = 0
             total_size = 0
             try:
-                for entry in os.scandir(temp_dir):
+                for entry in os.scandir(scan_dir):
                     if entry.is_file(follow_symlinks=False):
                         files_count += 1
                         total_size += entry.stat().st_size
             except Exception:
                 pass
             mb_size = round(total_size / (1024 * 1024), 2)
-            return f"🧹 [Filesystem] Storage Inspection: Identified {files_count} temporary files ({mb_size} MB) in target cache '{temp_dir}'."
+            return f"🧹 [Filesystem] Storage Inspection: Identified {files_count} temporary files ({mb_size} MB) in target '{scan_dir}'."
         else:
-            # Clean orphan matrix temporary files if present
             cleaned = 0
-            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-            for root, dirs, files in os.walk(project_root):
+            clean_base = target_dir or os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            for root, dirs, files in os.walk(clean_base):
                 for f in files:
                     if f.endswith(".tmp") or f.endswith(".bak"):
                         try:
@@ -94,7 +92,7 @@ class AgentExecutor:
                             cleaned += 1
                         except Exception:
                             pass
-            return f"🧹 [Filesystem] Purge Complete: Cleaned {cleaned} transient artifact files across workspace tree."
+            return f"🧹 [Filesystem] Purge Complete: Cleaned {cleaned} transient artifact files in target tree."
 
     @staticmethod
     def _execute_network_guard(step: int, total_steps: int) -> str:
@@ -106,8 +104,7 @@ class AgentExecutor:
                 local_ip = "127.0.0.1"
             return f"🌐 [NetGuard] Interface Verification: Host '{hostname}' bound to address {local_ip}."
         else:
-            # Check loopback ping latency
-            return f"🌐 [NetGuard] Traffic Inspection: Local loopback IPC connection latency < 1ms. Firewall policy ACTIVE."
+            return f"🌐 [NetGuard] Traffic Inspection: Local loopback socket interfaces active and operational."
 
     @staticmethod
     def _execute_data_analysis(step: int, total_steps: int) -> str:
@@ -127,7 +124,6 @@ class AgentExecutor:
     @staticmethod
     def _execute_code_build(step: int, total_steps: int) -> str:
         if step == 1:
-            # Syntax validation check on core files
             core_dir = os.path.dirname(os.path.abspath(__file__))
             valid = 0
             failed = 0
@@ -153,13 +149,13 @@ class AgentExecutor:
         except Exception:
             wine_installed = False
 
-        status = "INSTALLED (WineHQ)" if wine_installed else "EMULATED HARDWARE WRAPPER"
+        status = "INSTALLED (WineHQ)" if wine_installed else "NOT INSTALLED / EMULATED"
         return f"🍷 [WineTranslator] Subsystem Check: Win32 API translation compatibility layer status: {status}."
 
     @staticmethod
     def _execute_self_improvement(step: int, total_steps: int) -> str:
         cores = os.cpu_count() or 4
-        return f"🧠 [SelfImprover] Resource Profiling: Evaluated system capacity on {cores} logical core topology. Optimal load profile set."
+        return f"🧠 [SelfImprover] Resource Audit: Scanned system hardware topology ({cores} CPU logical threads)."
 
     @staticmethod
     def _execute_generic_step(agent_id: str, task_name: str, step: int, total_steps: int) -> str:

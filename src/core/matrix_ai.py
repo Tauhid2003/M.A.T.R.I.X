@@ -121,11 +121,16 @@ def fallback_heuristics(prompt):
         }
 
 def get_api_token():
-    token_paths = [
+    token_env = os.getenv("MATRIX_TOKEN_FILE")
+    token_paths = []
+    if token_env:
+        token_paths.append(token_env)
+    token_paths.extend([
+        "/run/matrix/api_token",
         "/var/run/matrix/api_token",
         os.path.join(os.path.dirname(__file__), "..", "..", "matrix_api_token.txt"),
         "matrix_api_token.txt"
-    ]
+    ])
     for p in token_paths:
         if os.path.exists(p):
             try:
@@ -135,14 +140,6 @@ def get_api_token():
                         return tok
             except Exception:
                 pass
-    try:
-        req = urllib.request.Request("http://127.0.0.1:8000/api/token.js", method="GET")
-        with urllib.request.urlopen(req, timeout=2) as response:
-            content = response.read().decode("utf-8")
-            if "'" in content:
-                return content.split("'")[1]
-    except Exception:
-        pass
     return ""
 
 def post_to_scheduler(task_data):

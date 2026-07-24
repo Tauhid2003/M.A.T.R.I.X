@@ -35,16 +35,20 @@ except ImportError:
 
 # Configuration constants
 PORT = 8000
-DB_PATH = "/var/lib/matrix/scheduler.db"
-
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+DB_PATH = os.getenv("MATRIX_DB_PATH", "/var/lib/matrix/scheduler.db")
+if not os.getenv("MATRIX_DB_PATH"):
+    if platform.system() == "Windows" or not os.access("/var/lib", os.W_OK):
+        DB_PATH = os.path.join(project_root, "scheduler.db")
 
 # Generate a cryptographically secure token for local API authorization
 API_TOKEN = uuid.uuid4().hex
 
-TOKEN_FILE = "/var/run/matrix/api_token"
-if platform.system() == "Windows" or not os.access("/var/run", os.W_OK):
-    TOKEN_FILE = os.path.join(project_root, "matrix_api_token.txt")
+TOKEN_FILE = os.getenv("MATRIX_TOKEN_FILE", "/run/matrix/api_token")
+if not os.getenv("MATRIX_TOKEN_FILE"):
+    if platform.system() == "Windows" or not os.access("/run", os.W_OK):
+        TOKEN_FILE = os.path.join(project_root, "matrix_api_token.txt")
 
 try:
     os.makedirs(os.path.dirname(os.path.abspath(TOKEN_FILE)), exist_ok=True)
@@ -52,9 +56,6 @@ try:
         f.write(API_TOKEN)
 except Exception:
     pass
-
-if platform.system() == "Windows":
-    DB_PATH = os.path.join(project_root, "scheduler.db")
 
 # UI build directory resolution (port 8000 unified dashboard)
 UI_DIST_DIR = "/usr/share/matrix/ui"
@@ -187,16 +188,6 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
         path = parsed_url.path
 
         if path.startswith("/api/"):
-            if path == "/api/token.js":
-                content = f"window.MATRIX_API_TOKEN = '{API_TOKEN}';"
-                self.send_response(200)
-                self.send_header("Content-Type", "application/javascript")
-                self.send_header("Content-Length", str(len(content)))
-                self._set_cors_headers()
-                self.end_headers()
-                self.wfile.write(content.encode("utf-8"))
-                return
-
             # Verify local token authorization
             client_token = self.headers.get("X-Matrix-Token")
             if client_token != API_TOKEN:
@@ -276,13 +267,23 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
         
         try:
             with open(target_file, "rb") as f:
-                content = f.read()
+                content_bytes = f.read()
+
+            if ext == ".html":
+                content_str = content_bytes.decode("utf-8", errors="replace")
+                token_script = f"<script>window.MATRIX_API_TOKEN = '{API_TOKEN}';</script>"
+                if "</head>" in content_str:
+                    content_str = content_str.replace("</head>", f"{token_script}</head>", 1)
+                else:
+                    content_str = token_script + content_str
+                content_bytes = content_str.encode("utf-8")
+
             self.send_response(200)
             self.send_header("Content-Type", content_type)
-            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Content-Length", str(len(content_bytes)))
             self._set_cors_headers()
             self.end_headers()
-            self.wfile.write(content)
+            self.wfile.write(content_bytes)
         except Exception as e:
             self.send_response(500)
             self.end_headers()

@@ -16,11 +16,18 @@ class TestAgentExecutor(unittest.TestCase):
         self.assertIn("Socket Audit", res2)
 
     def test_filesystem_cleanup_step(self):
-        res1 = AgentExecutor.execute_task_step("Filesystem Stripper", "Clean", 1, 2)
-        self.assertIn("Storage Inspection", res1)
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_file = os.path.join(temp_dir, "test_file.tmp")
+            with open(tmp_file, "w") as f:
+                f.write("temporary content")
 
-        res2 = AgentExecutor.execute_task_step("Filesystem Stripper", "Clean", 2, 2)
-        self.assertIn("Purge Complete", res2)
+            res1 = AgentExecutor._execute_filesystem_cleanup(1, 2, target_dir=temp_dir)
+            self.assertIn("Storage Inspection", res1)
+
+            res2 = AgentExecutor._execute_filesystem_cleanup(2, 2, target_dir=temp_dir)
+            self.assertIn("Purge Complete", res2)
+            self.assertFalse(os.path.exists(tmp_file))
 
     def test_network_guard_step(self):
         res = AgentExecutor.execute_task_step("Network Guard", "Inspect", 1, 2)

@@ -17,6 +17,9 @@ class TestAPIDaemonAuth(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls.temp_db = os.path.join(cls.temp_dir.name, "test_scheduler.db")
+        os.environ["MATRIX_DB_PATH"] = cls.temp_db
         cls.server = HTTPServer(('127.0.0.1', 8888), MatrixAPIHandler)
         cls.thread = threading.Thread(target=cls.server.serve_forever)
         cls.thread.daemon = True
@@ -27,6 +30,7 @@ class TestAPIDaemonAuth(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown()
         cls.server.server_close()
+        cls.temp_dir.cleanup()
 
     def test_token_file_creation(self):
         token_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "matrix_api_token.txt")
