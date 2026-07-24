@@ -143,7 +143,7 @@
     "concurrency_limit": 4,
     "gpu_mode": "auto",
     "runtime_network_required": false,
-    "default_orchestrator_model": "qwen3:8b",
+    "default_orchestrator_model": "qwen2.5:0.5b",
     "offline_fallback_model": "matrix-local-synapse"
   },
   "ai_orchestration": {

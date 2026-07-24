@@ -1,0 +1,46 @@
+name: M.A.T.R.I.X AI-OS CI Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  python-tests:
+    name: Run Python Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Scheduler & Kernel Tests
+        run: |
+          python -m unittest discover -s src/scheduler -p "test_*.py"
+
+      - name: Run Core & API Integration Tests
+        run: |
+          python -m unittest discover -s src/core -p "test_*.py"
+
+  ui-lint:
+    name: Validate UI Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install UI Dependencies & Validate Build
+        run: |
+          cd src/ui
+          npm install
+          npm run build

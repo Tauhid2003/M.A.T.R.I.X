@@ -9,6 +9,19 @@ import platform
 import subprocess
 import json
 import re
+import urllib.request
+
+def get_installed_ollama_models():
+    """Queries local Ollama service to discover currently pulled/installed models."""
+    try:
+        req = urllib.request.Request("http://localhost:11434/api/tags", method="GET")
+        with urllib.request.urlopen(req, timeout=2) as response:
+            res_json = json.loads(response.read().decode("utf-8"))
+            models = res_json.get("models", [])
+            return [m.get("name") for m in models if m.get("name")]
+    except Exception:
+        pass
+    return []
 
 def get_ram_bytes():
     """Detects total system physical RAM in bytes."""
@@ -132,6 +145,23 @@ def profile_system():
             recommended_quant = "q4_K_M"
             zram_recommended = True
             swappiness = 5
+
+    # Filter theoretical hardware recommendation against actually installed Ollama models
+    installed = get_installed_ollama_models()
+    if installed:
+        match = None
+        for item in installed:
+            if model_name.split(':')[0] in item or item in model_name:
+                match = item
+                break
+        if match:
+            model_name = match
+        else:
+            model_name = installed[0]
+            model_desc = f"{model_name} (Active installed local model)"
+    else:
+        model_name = "qwen2.5:0.5b"
+        model_desc = "Qwen 2.5 0.5B (Guaranteed offline baked ISO fallback)"
 
     # Synthesize natural local voice model recommendation
     # Lower-end platforms use the lightweight Piper voice; workstation tiers run expressive TTS profiles.

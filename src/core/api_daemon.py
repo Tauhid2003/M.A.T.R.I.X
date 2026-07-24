@@ -37,10 +37,21 @@ except ImportError:
 PORT = 8000
 DB_PATH = "/var/lib/matrix/scheduler.db"
 
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
 # Generate a cryptographically secure token for local API authorization
 API_TOKEN = uuid.uuid4().hex
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+TOKEN_FILE = "/var/run/matrix/api_token"
+if platform.system() == "Windows" or not os.access("/var/run", os.W_OK):
+    TOKEN_FILE = os.path.join(project_root, "matrix_api_token.txt")
+
+try:
+    os.makedirs(os.path.dirname(os.path.abspath(TOKEN_FILE)), exist_ok=True)
+    with open(TOKEN_FILE, "w", encoding="utf-8") as f:
+        f.write(API_TOKEN)
+except Exception:
+    pass
 
 if platform.system() == "Windows":
     DB_PATH = os.path.join(project_root, "scheduler.db")

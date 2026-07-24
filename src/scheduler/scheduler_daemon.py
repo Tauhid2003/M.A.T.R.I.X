@@ -19,6 +19,14 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8')
 
+# Dynamic path resolution to load real AgentExecutor engine
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "core")))
+try:
+    from agent_executor import AgentExecutor
+    HAS_AGENT_EXECUTOR = True
+except ImportError:
+    HAS_AGENT_EXECUTOR = False
+
 # Ground truth DB paths with cross-platform fallback
 DB_PATH = "/var/lib/matrix/scheduler.db"
 LOG_PATH = "/var/log/matrix_scheduler.log"
@@ -435,21 +443,25 @@ async def main():
             active_task.executed_time += step_time
             active_task.remaining_time = max(0.0, active_task.remaining_time - step_time)
             
-            # Query Ollama for dynamic progress step
+            # Execute real agent OS tool action
             action = None
-            model = get_best_ollama_model()
-            if model:
-                prompts = load_agent_prompts()
-                system_prompt = prompts.get(active_task.agent_id, f"You are the {active_task.agent_id} Agent for M.A.T.R.I.X OS.")
-                user_prompt = (
-                    f"We are running a simulated task '{active_task.task_name}' for agent '{active_task.agent_id}' "
-                    f"under scheduling policy '{algo.upper()}'. This is step {step+1} out of {steps}. "
-                    f"Describe in exactly one short sentence (under 10 words) what action you are taking right now. "
-                    f"Start the sentence with a verb or status emoji."
-                )
-                action_text = await query_ollama(model, system_prompt, user_prompt)
-                if action_text:
-                    action = f"[{algo.upper()}] {action_text}"
+            if HAS_AGENT_EXECUTOR:
+                real_res = AgentExecutor.execute_task_step(active_task.agent_id, active_task.task_name, step + 1, steps)
+                action = f"[{algo.upper()}] {real_res}"
+            
+            if not action:
+                model = get_best_ollama_model()
+                if model:
+                    prompts = load_agent_prompts()
+                    system_prompt = prompts.get(active_task.agent_id, f"You are the {active_task.agent_id} Agent for M.A.T.R.I.X OS.")
+                    user_prompt = (
+                        f"We are running task '{active_task.task_name}' for agent '{active_task.agent_id}' "
+                        f"under scheduling policy '{algo.upper()}'. This is step {step+1} out of {steps}. "
+                        f"Describe in exactly one short sentence (under 10 words) what action you are taking right now."
+                    )
+                    action_text = await query_ollama(model, system_prompt, user_prompt)
+                    if action_text:
+                        action = f"[{algo.upper()}] {action_text}"
             
             if not action:
                 action = f"{algo.upper()} step {step+1}/{steps} for {active_task.task_name}"

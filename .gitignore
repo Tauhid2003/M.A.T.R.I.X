@@ -5,6 +5,7 @@
 *.log
 scheduler.db
 scheduler.log
+matrix_api_token.txt
 
 # Temporary Word Lock Files & Locked original file
 ~$*.docx

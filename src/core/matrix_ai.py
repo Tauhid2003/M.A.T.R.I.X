@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+import os
 import json
 import urllib.request
 import urllib.error
@@ -119,11 +120,40 @@ def fallback_heuristics(prompt):
             "intent_explanation": "Monitoring inbound packets from local domain interfaces."
         }
 
+def get_api_token():
+    token_paths = [
+        "/var/run/matrix/api_token",
+        os.path.join(os.path.dirname(__file__), "..", "..", "matrix_api_token.txt"),
+        "matrix_api_token.txt"
+    ]
+    for p in token_paths:
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    tok = f.read().strip()
+                    if tok:
+                        return tok
+            except Exception:
+                pass
+    try:
+        req = urllib.request.Request("http://127.0.0.1:8000/api/token.js", method="GET")
+        with urllib.request.urlopen(req, timeout=2) as response:
+            content = response.read().decode("utf-8")
+            if "'" in content:
+                return content.split("'")[1]
+    except Exception:
+        pass
+    return ""
+
 def post_to_scheduler(task_data):
     url = "http://127.0.0.1:8000/api/scheduler/add-task"
+    token = get_api_token()
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["X-Matrix-Token"] = token
     try:
         req_body = json.dumps(task_data).encode("utf-8")
-        req = urllib.request.Request(url, data=req_body, headers={"Content-Type": "application/json"}, method="POST")
+        req = urllib.request.Request(url, data=req_body, headers=headers, method="POST")
         with urllib.request.urlopen(req, timeout=5) as response:
             return response.status == 200
     except Exception:
