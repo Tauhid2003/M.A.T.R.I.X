@@ -28,7 +28,7 @@ def main() -> int:
 
         orchestrator = AIOrchestrator(config)
         status = orchestrator.core_status()
-        assert status["default_model"] == "qwen3:8b"
+        assert status["default_model"] == "qwen2.5:0.5b"
         assert orchestrator.plan_action("open terminal").action == "open_app"
         assert orchestrator.plan_action("who is Tauhid").action == "query_user_profile"
         assert orchestrator.plan_action("who is Tauhid").payload["name"] == "Shaik Tauhidur Rahman"

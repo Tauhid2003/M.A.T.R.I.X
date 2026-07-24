@@ -41,12 +41,20 @@ class AIOrchestrator:
                 required_memory="minimal",
             ),
             AIModelProfile(
+                name="qwen2.5:0.5b",
+                role="default baked local OS orchestrator",
+                size="about 390 MB",
+                context_window="32K tokens",
+                required_memory="minimal (baked offline ISO model)",
+                default=True,
+            ),
+            AIModelProfile(
                 name="qwen3:8b",
-                role="default local OS orchestrator",
+                role="medium-power local OS orchestrator",
                 size="about 5.2 GB",
                 context_window="40K tokens",
                 required_memory="8-12 GB RAM recommended",
-                default=True,
+                optional=True,
             ),
             AIModelProfile(
                 name="qwen3:30b",
@@ -100,7 +108,7 @@ class AIOrchestrator:
             "state_dir": str(self.config.state_dir),
             "services": len(self.services.list_services()),
             "processes": len(self.processes.list_processes()),
-            "default_model": "qwen3:8b",
+            "default_model": "qwen2.5:0.5b",
             "fallback_model": "matrix-local-synapse",
         }
 

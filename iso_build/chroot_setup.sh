@@ -97,8 +97,12 @@ chown matrix:matrix /var/log/matrix_scheduler.log /var/log/matrix_api_audit.log
 chmod 640 /var/log/matrix_scheduler.log /var/log/matrix_api_audit.log
 
 # Ensure execution flags are set for workspace-copied daemons
-chmod +x /usr/local/bin/matrix_scheduler.py
-chmod +x /usr/local/bin/api_daemon.py
+chmod +x /usr/local/bin/hardware_profiler.py || true
+chmod +x /usr/local/bin/firstboot_setup.py || true
+chmod +x /usr/local/bin/api_daemon.py || true
+chmod +x /usr/local/bin/agent_executor.py || true
+chmod +x /usr/local/bin/matrix-ai || true
+chmod +x /usr/local/bin/matrix_scheduler.py || true
 
 # 6. Enable system services
 echo "Enabling systemd service profiles..."
