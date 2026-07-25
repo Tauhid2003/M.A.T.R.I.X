@@ -473,7 +473,7 @@ async def main():
         conn.commit()
 
         # Evaluate optimal model route via Energy-Aware Model Router
-        target_model = "qwen2.5:0.5b"
+        target_model = get_best_ollama_model() or "qwen2.5:0.5b"
         if ENERGY_SCHEDULER:
             route = ENERGY_SCHEDULER.select_optimal_model_route(active_task.task_complexity, target_model)
             selected_model = route["selected_model"]
@@ -484,6 +484,8 @@ async def main():
         for step in range(steps):
             trace_id = f"task_{active_task.db_id}_{step+1}"
             span = TRACER.start_span(trace_id, "task_execution", active_task.agent_id) if TRACER else None
+            generated_tokens = 0
+            model_used = None
 
             await asyncio.sleep(step_time)
             active_task.executed_time += step_time
@@ -508,6 +510,8 @@ async def main():
                     action_text = await query_ollama(model, system_prompt, user_prompt)
                     if action_text:
                         action = f"[{algo.upper()}] {action_text}"
+                        generated_tokens = len(action_text.split())
+                        model_used = model
             
             if not action:
                 action = f"{algo.upper()} step {step+1}/{steps} for {active_task.task_name}"
@@ -520,9 +524,9 @@ async def main():
                 task_energy = ENERGY_SCHEDULER.estimate_task_energy_cost(step_time, active_task.task_complexity, active_task.resource_requirements) if ENERGY_SCHEDULER else 10.0
                 span.finish({
                     "energy_joules": task_energy,
-                    "tokens_generated": 15 * (step + 1),
+                    "tokens_generated": generated_tokens,
                     "task_name": active_task.task_name,
-                    "model": selected_model
+                    "model": model_used
                 })
                 TRACER.record_span(span)
 
@@ -537,7 +541,7 @@ async def main():
         if active_task.remaining_time <= 0.01:
             log_message(f"✅ Completed task '{active_task.task_name}' for agent '{active_task.agent_id}'")
             outcome = None
-            model = get_best_ollama_model()
+            model = selected_model or get_best_ollama_model()
             if model:
                 prompts = load_agent_prompts()
                 system_prompt = prompts.get(active_task.agent_id, f"You are the {active_task.agent_id} Agent for M.A.T.R.I.X OS.")
@@ -554,6 +558,8 @@ async def main():
             active_task.attention_history.append(outcome)
             cursor.execute("UPDATE tasks SET status = 'completed', attention_history = ? WHERE id = ?",
                            (json.dumps(active_task.attention_history), active_task.db_id))
+            if TRACER:
+                TRACER.record_task_completion()
             active_task = None
         else:
             log_message(f"⏱️ Preempting task '{active_task.task_name}' for '{active_task.agent_id}'")

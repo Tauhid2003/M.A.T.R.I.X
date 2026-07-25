@@ -13,6 +13,7 @@ import sys
 sys.path.append(os.path.dirname(__file__))
 
 from scheduler_daemon import AgentTask, LRUKCache, AgentScheduler, init_db
+from telemetry import TelemetryTracer
 
 class TestSchedulerDaemon(unittest.IsolatedAsyncioTestCase):
 
@@ -80,6 +81,17 @@ class TestSchedulerDaemon(unittest.IsolatedAsyncioTestCase):
         # Verify it is sorted correctly
         self.assertTrue(tasks[0].priority >= tasks[1].priority)
         self.assertTrue(tasks[-2].priority >= tasks[-1].priority)
+
+    def test_telemetry_counts_completed_tasks_once(self):
+        tracer = TelemetryTracer()
+        span = tracer.start_span("task_1_1", "task_execution", "Agent1")
+        span.finish({"energy_joules": 3.5, "tokens_generated": 4})
+        tracer.record_span(span)
+
+        self.assertEqual(tracer.total_tasks_completed, 0)
+        tracer.record_task_completion()
+        self.assertEqual(tracer.total_tasks_completed, 1)
+        self.assertEqual(tracer.total_tokens_generated, 4)
 
     @patch('asyncio.sleep', return_value=None)
     @patch('scheduler_daemon.log_message')

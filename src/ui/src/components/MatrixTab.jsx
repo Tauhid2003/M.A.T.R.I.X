@@ -585,6 +585,11 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
       if (!schedulerRunning) handleToggleDaemon();
       return;
     }
+    if (cmd.includes('matrix adaptive') || cmd.includes('adaptive scheduler')) {
+      handleSetAlgorithm('matrixadaptive');
+      if (!schedulerRunning) handleToggleDaemon();
+      return;
+    }
     if (cmd.includes('reset scheduler') || cmd.includes('reset queue')) {
       handleResetQueue();
       return;
@@ -1641,6 +1646,13 @@ export default function MatrixTab({ onNavigateApp, onExecuteCommand }) {
             style={{ fontSize: '0.6rem', padding: '4px 0' }}
           >
             Priority Queue
+          </button>
+          <button
+            onClick={() => handleSetAlgorithm('matrixadaptive')}
+            className={schedulerAlgo === 'matrixadaptive' ? 'btn-cyan' : 'btn-flush'}
+            style={{ fontSize: '0.6rem', padding: '4px 0', gridColumn: '1 / -1' }}
+          >
+            Matrix Adaptive
           </button>
         </div>
 

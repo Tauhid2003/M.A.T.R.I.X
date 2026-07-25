@@ -62,8 +62,10 @@ class TelemetryTracer:
         tokens = span.attributes.get("tokens_generated", 0)
         self.total_energy_joules += energy
         self.total_tokens_generated += tokens
-        if span.name == "task_execution":
-            self.total_tasks_completed += 1
+
+    def record_task_completion(self):
+        """Record completion once per scheduler task, not once per execution span."""
+        self.total_tasks_completed += 1
 
     def get_summary_telemetry(self) -> Dict[str, Any]:
         mean_latency = 0.0

@@ -70,25 +70,35 @@ if not os.getenv("MATRIX_DB_PATH"):
 # Generate a cryptographically secure token for local API authorization
 API_TOKEN = uuid.uuid4().hex
 
-TOKEN_FILE = os.getenv("MATRIX_TOKEN_FILE")
-if not TOKEN_FILE:
-    candidate_paths = [
-        "/run/matrix/api_token",
-        os.path.join(project_root, "matrix_api_token.txt")
-    ]
-    written = False
-    for p in candidate_paths:
+def write_api_token(candidate_paths):
+    """Persist the startup token to the first writable configured location."""
+    for path in candidate_paths:
         try:
-            os.makedirs(os.path.dirname(os.path.abspath(p)), exist_ok=True)
-            with open(p, "w", encoding="utf-8") as f:
-                f.write(API_TOKEN)
-            TOKEN_FILE = p
-            written = True
-            break
-        except Exception:
+            os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as token_file:
+                token_file.write(API_TOKEN)
+            try:
+                os.chmod(path, 0o600)
+            except OSError:
+                # Windows does not support POSIX file modes.
+                pass
+            return path
+        except OSError:
             continue
-    if not written:
-        TOKEN_FILE = os.path.join(project_root, "matrix_api_token.txt")
+    return None
+
+configured_token_file = os.getenv("MATRIX_TOKEN_FILE")
+token_file_candidates = []
+if configured_token_file:
+    token_file_candidates.append(configured_token_file)
+token_file_candidates.extend([
+    "/run/matrix/api_token",
+    os.path.join(project_root, "matrix_api_token.txt")
+])
+TOKEN_FILE = write_api_token(token_file_candidates)
+if TOKEN_FILE is None:
+    # Retain the most useful diagnostic value when all token locations fail.
+    TOKEN_FILE = configured_token_file or os.path.join(project_root, "matrix_api_token.txt")
 
 # UI build directory resolution (port 8000 unified dashboard)
 UI_DIST_DIR = "/usr/share/matrix/ui"
@@ -751,21 +761,35 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
         self.send_json(result)
 
     def handle_post_scheduler_set_algorithm(self, payload):
-        algorithm = payload.get("algorithm", "").strip()
-        valid_algos = ['fifo', 'rr', 'sjf', 'priority', 'matrixadaptive', 'adaptive', 'FIFO', 'RR', 'SJF', 'Priority', 'MatrixAdaptive', 'Adaptive']
-        if algorithm not in valid_algos:
+        algorithm = str(payload.get("algorithm", "")).strip()
+        normalized = algorithm.casefold().replace("_", "").replace("-", "").replace(" ", "")
+        algorithm_aliases = {
+            "fifo": "fifo",
+            "rr": "rr",
+            "sjf": "sjf",
+            "priority": "priority",
+            "adaptive": "matrixadaptive",
+            "matrixadaptive": "matrixadaptive",
+        }
+        safe_algo = algorithm_aliases.get(normalized)
+        if safe_algo is None:
             self.send_json({"error": "Invalid algorithm. Must be FIFO, RR, SJF, Priority, or MatrixAdaptive"}, 400)
             return
-            
-        safe_algo = "".join(c for c in algorithm if c.isalnum())
-        
+
         try:
+            os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
-            cursor.execute("UPDATE system_config SET value = ? WHERE key = 'algorithm'", (safe_algo,))
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS system_config (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                )
+            """)
+            cursor.execute("INSERT OR REPLACE INTO system_config (key, value) VALUES ('algorithm', ?)", (safe_algo,))
             conn.commit()
             conn.close()
-            self.send_json({"status": "success"})
+            self.send_json({"status": "success", "algorithm": safe_algo})
         except Exception as e:
             self.send_json({"error": str(e)}, 500)
 
@@ -844,6 +868,10 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
         try:
             agent_id = payload.get("agent_id")
             task_name = payload.get("task_name")
+            if not isinstance(agent_id, str) or not agent_id.strip() or not isinstance(task_name, str) or not task_name.strip():
+                self.send_json({"error": "agent_id and task_name are required"}, 400)
+                return
+
             duration = float(payload.get("duration", 0))
             task_complexity = float(payload.get("task_complexity", 0))
             urgency = float(payload.get("urgency", 0))
@@ -855,8 +883,25 @@ class MatrixAPIHandler(BaseHTTPRequestHandler):
             
             priority = round((task_complexity * 0.2) + (urgency * 0.4) + (resource_requirements * 0.1) + (user_priority * 0.3), 2)
             
+            os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    agent_id TEXT,
+                    task_name TEXT,
+                    duration REAL,
+                    remaining_time REAL,
+                    task_complexity REAL,
+                    urgency REAL,
+                    resource_requirements REAL,
+                    user_priority REAL,
+                    priority REAL,
+                    status TEXT,
+                    attention_history TEXT
+                )
+            """)
             cursor.execute("""
                 INSERT INTO tasks (agent_id, task_name, duration, remaining_time, task_complexity, urgency, resource_requirements, user_priority, priority, status, attention_history)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', '[]')
